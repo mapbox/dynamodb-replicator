@@ -1,0 +1,25 @@
+{
+  "name": "dynamodb-replicator",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mapbox/dynamodb-replicator.git"
+  },
+  "author": "Mapbox",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/mapbox/dynamodb-replicator/issues"
+  },
+  "homepage": "https://github.com/mapbox/dynamodb-replicator",
+  "dependencies": {
+    "fastlog": "^1.0.0",
+    "kinesis-client-library": "^0.2.0",
+    "logger": "0.0.1",
+    "queue-async": "^1.0.7"
+  }
+}
