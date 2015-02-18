@@ -4,12 +4,12 @@ var queue = require('queue-async');
 var logger = require('fastlog')('replicator');
 
 var writeConfig = {
-    region: 'eu-west-1',
-    table: process.env.DynamoTable
+    region: process.env.ReplicaRegion,
+    table: process.env.ReplicaTable
 };
 var readConfig = {
-    region: 'us-east-1'
-    table: process.env.DynamoTable
+    region: process.env.PrimaryRegion,
+    table: process.env.PrimaryTable
 };
 
 var dyno = require('dyno').multi(readconfig, writeConfig);
