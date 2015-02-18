@@ -1,50 +1,64 @@
-var kcl = require('kinesis-client-library')
 var fs = require('fs');
 var queue = require('queue-async');
 var logger = require('fastlog')('replicator');
 
-var writeConfig = {
-    region: 'eu-west-1',
-    table: process.env.DynamoTable
-};
-var readConfig = {
-    region: 'us-east-1'
-    table: process.env.DynamoTable
-};
+/*
 
-var dyno = require('dyno').multi(readconfig, writeConfig);
+ Returns an object that can be used to extend kcl.AbstractConsumer
 
-kcl.AbstractConsumer.extend({
-    processRecords: function (records, done) {
+ Config needs to include the dyno config for a primary and replica
 
-        var q = queue(10);
-        records.forEach(function (record) {
+ {
+    primary: {
+      region: 'us-east-1',
+      table: 'test-primary'
+    },
+    replica: {
+      region: 'eu-west-1',
+      table: 'test-replica'
+    }
+ }
 
-            var data = JSON.parse(record.Data.toString('utf8'));
-            logger.info('processing', JSON.stringify(data.dynamodb.Keys));
+ Dynamo items will be read from the primary, and written to the replica.
 
-            q.defer(function(cb) {
-                var opts = {
-                    consistentRead: true,
-                    table: data.table
-                };
-                dyno.getItem(data.dynamodb.Keys, opts, function(err, item, meta) {
-                    if(err) return cb(err);
+*/
 
-                    if(item === undefined) {
-                        dyno.deleteItem(data.dynamodb.Keys, { table: data.table }, cb);
-                    } else {
-                        dyno.putItem(item, { table: data.table }, cb);
-                    }
+
+module.exports = function(config){
+
+    config.logging = config.logging || true;
+
+    var dynoPrimary = require('dyno')(config.primary)
+    var dynoReplica = require('dyno')(config.replica);
+
+    return {
+        processRecords: function (records, done) {
+
+            var q = queue();
+            records.forEach(function (record) {
+
+                var data = JSON.parse(record.Data.toString('utf8'));
+                if(config.logging) logger.info('processing', JSON.stringify(data.dynamodb.Keys));
+
+                q.defer(function(cb) {
+                    dynoPrimary.getItem(data.dynamodb.Keys, {consistentRead: true}, function(err, item, meta) {
+                        if(err) return cb(err);
+
+                        if(item === undefined) {
+                            dynoReplica.deleteItem(data.dynamodb.Keys, { table: data.table }, cb);
+                        } else {
+                            dynoReplica.putItem(item, cb);
+                        }
+                    });
                 });
             });
-        });
-        q.awaitAll(function(err, resp) {
-            if(err) {
-                logger.error('getItem err:', err);
-                return done(err);
-            }
-            done(null, true);
-        });
-    }
-});
+            q.awaitAll(function(err, resp) {
+                if(err) {
+                    if(config.logging) logger.error('getItem err:', err);
+                    return done(err);
+                }
+                done(null, true);
+            });
+        }
+    };
+}
