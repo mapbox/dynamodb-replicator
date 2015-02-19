@@ -24,3 +24,39 @@ This provides a consumer for a kinesis stream of dynamodb changes. This can be u
     "eventVersion": "1.0"
 },
 ```
+
+
+### Usage:
+
+This is designed to be used along with the [Node Kinesis Client Library](https://github.com/evansolomon/nodejs-kinesis-client-library).
+
+
+With a `consumer.js`:
+
+```
+var kcl = require('kinesis-client-library');
+var replicator = require('dynamodb-replicator');
+
+var config = {
+    primary: {
+        region: process.env.PrimaryRegion,
+        table: process.env.PrimaryTable
+    },
+    replica: {
+        region: process.env.ReplicaRegion,
+        table: process.env.ReplicaTable
+    }
+};
+
+kcl.AbstractConsumer.extend(replicator(config));
+
+```
+
+Then start from the node kinesis client library [cli](https://github.com/evansolomon/nodejs-kinesis-client-library#cli)
+
+```
+launch-kinesis-cluster \
+  --consumer ./consumer.js \
+  --table kinesis-cluster-replica \
+  --stream kinesis-stream-name
+```

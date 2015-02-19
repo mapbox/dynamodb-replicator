@@ -20,7 +20,7 @@
     "fastlog": "^1.0.0",
     "logger": "0.0.1",
     "queue-async": "^1.0.7",
-    "dyno": "mapbox/dyno#double-dyno"
+    "dyno": "^0.9.0"
   },
   "devDependencies": {
     "dynalite": "^0.5.2",
