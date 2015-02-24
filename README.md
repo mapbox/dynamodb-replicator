@@ -1,35 +1,22 @@
-# Dynamodb Replicator
+# dynamodb-replicator
 
+[dynamodb-replicator](https://github.com/mapbox/dynamodb-replicator) consumes a Kinesis stream of DynamoDB changes (keys-only) and writes them to a replica DynamoDB table. dynamodb-replicator is compatible with the upcoming DynamoDB streams ([in preview](http://dynamodb-preview.s3-website-us-west-2.amazonaws.com/docs/streams-dg/About.html)) as well as [dyno](https://github.com/mapbox/dyno) with Kinesis ([available already](https://github.com/mapbox/dyno#multi--kinesisconfig)).
 
-This provides a consumer for a kinesis stream of dynamodb changes. This can be used with dynamo streams (in preview) or with a [dyno](https://github.com/mapbox/dyno) client that is configured to write to a kinesis stream.
+### Features
 
+- Primary-Replica replication between DynamoDB tables in different regions
+- Replication streaming based on Kinesis
+- Stream consists of object ids only (_KEYS_ONLY_), no changes or full items
+- Compatible with [upcoming DynamoDB Streams](http://dynamodb-preview.s3-website-us-west-2.amazonaws.com/docs/streams-dg/About.html) and current [dyno with Kinesis](https://github.com/mapbox/dyno#multi--kinesisconfig)
+- Ability to replay old stream events for bootstrapping a new replica, disaster recovery and ensuring consistency
 
-### Expected record format
+### Design
 
-```
-{
-    "awsRegion": "us-east-1",
-    "dynamodb": {
-        "Keys": {
-            "ForumName": {"S": "DynamoDB"},
-            "Subject": {"S": "DynamoDB Thread 3"}
-        },
-        "SequenceNumber": "300000000000000499659",
-        "SizeBytes": 41,
-        "StreamViewType": "KEYS_ONLY"
-    },
-    "eventID": "e2fd9c34eff2d779b297b26f5fef4206",
-    "eventName": "INSERT",
-    "eventSource": "aws:dynamodb",
-    "eventVersion": "1.0"
-},
-```
+Replication involves many moving parts, of which dynamodb-replicator is only one. Please read [DESIGN.md](https://github.com/mapbox/dyno/blob/master/DESIGN.md) for an in-depth explaination.
 
+### Usage
 
-### Usage:
-
-This is designed to be used along with the [Node Kinesis Client Library](https://github.com/evansolomon/nodejs-kinesis-client-library).
-
+dynamodb-replicator is designed to be used along with the [Node Kinesis Client Library](https://github.com/evansolomon/nodejs-kinesis-client-library) in your own project:
 
 With a `consumer.js`:
 
@@ -49,7 +36,6 @@ var config = {
 };
 
 kcl.AbstractConsumer.extend(replicator(config));
-
 ```
 
 Then start from the node kinesis client library [cli](https://github.com/evansolomon/nodejs-kinesis-client-library#cli)
