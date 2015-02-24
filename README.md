@@ -12,7 +12,7 @@
 
 ### Design
 
-Replication involves many moving parts, of which dynamodb-replicator is only one. Please read [DESIGN.md](https://github.com/mapbox/dyno/blob/master/DESIGN.md) for an in-depth explaination.
+Replication involves many moving parts, of which dynamodb-replicator is only one. Please read [DESIGN.md](https://github.com/mapbox/dynamodb-replicator/blob/master/DESIGN.md) for an in-depth explaination.
 
 ### Usage
 
