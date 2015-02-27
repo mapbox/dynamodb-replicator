@@ -1,7 +1,7 @@
 var test = require('tap').test,
     fs = require('fs'),
     queue = require('queue-async');
-var s = require('./setup');
+var s = require('./setup')();
 var config = s.config;
 var dynos = s.dynos;
 
