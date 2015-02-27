@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "node test/index.js"
+    "test": "tap test/*.test.js"
   },
   "repository": {
     "type": "git",
@@ -17,10 +17,15 @@
   },
   "homepage": "https://github.com/mapbox/dynamodb-replicator",
   "dependencies": {
+    "aws-sdk": "^2.1.14",
+    "dyno": "^0.9.0",
+    "event-stream": "^3.2.2",
     "fastlog": "^1.0.0",
     "logger": "0.0.1",
+    "minimist": "^1.1.0",
     "queue-async": "^1.0.7",
-    "dyno": "^0.9.0"
+    "split": "^0.3.3",
+    "underscore": "^1.8.2"
   },
   "devDependencies": {
     "dynalite": "^0.5.2",
