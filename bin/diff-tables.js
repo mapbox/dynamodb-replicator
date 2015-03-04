@@ -23,8 +23,6 @@ if (args.help) {
     process.exit(0);
 }
 
-config.log = fastlog('diff-tables', 'info');
-
 var primary = args._[0];
 var replica = args._[1];
 
@@ -43,12 +41,14 @@ if (!replica) {
 primary = primary.split('/');
 replica = replica.split('/');
 
+var log = fastlog('diff-tables', 'info');
+
 var config = {
     primary: {
         region: primary[0],
         table: primary[1]
     },
-    repica: {
+    replica: {
         region: replica[0],
         table: replica[1]
     },
@@ -56,12 +56,12 @@ var config = {
     segment: args.segment,
     segments: args.segments,
     backfill: args.backfill,
-    log: fastlog('diff-tables', 'info')
+    log: log.info
 };
 
 diff(config, function(err, discrepancies) {
     if (err) {
-        config.log.error(err);
+        log.error(err);
         process.exit(1);
     }
 });

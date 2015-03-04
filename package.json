@@ -4,8 +4,10 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "diff-tables": "bin/diff-tables.js",
     "test": "tap test/*.test.js"
+  },
+  "bin": {
+    "diff-tables": "bin/diff-tables.js"
   },
   "repository": {
     "type": "git",
