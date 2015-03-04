@@ -75,5 +75,3 @@ $ diff-tables us-east-1/primary eu-west-2/new-replica --backfill --repair
 # Perform one segment of a parallel scan
 $ diff-tables us-east-1/primar eu-west-2/replica --repair --segment 0 --segments 10
 ```
-
-To repa
