@@ -10,6 +10,8 @@ module.exports = function(config, done) {
     replica.name = 'replica';
 
     var log = config.log || console.log;
+    var scanOpts = config.hasOwnProperty('segment') && config.segments ?
+        { segment: config.segment, segments: config.segments } : undefined;
 
     var discrepancies = 0;
 
@@ -60,14 +62,15 @@ module.exports = function(config, done) {
 
         log('Scanning primary table and comparing to replica');
 
-        primary.scan()
+        primary.scan(scanOpts)
             .on('error', done)
             .pipe(compare)
             .on('error', done)
             .on('finish', function() {
                 discrepancies += compare.discrepancies;
                 log('[discrepancies] Scanning primary: %s', compare.discrepancies);
-                scanReplica(keySchema);
+                if (!config.backfill) return scanReplica(keySchema);
+                done(null, discrepancies);
             });
     }
 
@@ -76,7 +79,7 @@ module.exports = function(config, done) {
 
         log('Scanning replica table and comparing to primary');
 
-        replica.scan()
+        replica.scan(scanOpts)
             .on('error', done)
             .pipe(compare)
             .on('error', done)

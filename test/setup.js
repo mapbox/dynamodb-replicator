@@ -51,6 +51,7 @@ module.exports = function(live) {
             updateTableMs: 0,
             deleteTableMs: 0
         });
+
         dynalite.listen(4567, function() {
             t.pass('dynalite listening');
             setupTables();
@@ -72,6 +73,39 @@ module.exports = function(live) {
                 t.end();
             });
         }
+    };
+
+    // Inserts n different items in both tables
+    setup.differentItemsPlease = function(n, callback) {
+        function generate() {
+            var items = [];
+            var data;
+            itemsize = 1024;
+
+            for (var i = 0; i < n; i++) {
+                data = '';
+                for (var k = 0; k < itemsize; k++) {
+                    data += Math.floor(10 * Math.random()).toString();
+                }
+
+                items.push({
+                    hash: 'id:' + i.toString(),
+                    range: i.toString(),
+                    other: data
+                });
+            }
+
+            return items;
+        }
+
+        var q = queue();
+        generate().forEach(function(item) {
+            q.defer(dynos.primary.putItem, item);
+        });
+        generate().forEach(function(item) {
+            q.defer(dynos.replica.putItem, item);
+        });
+        q.awaitAll(callback);
     };
 
     setup.teardown = function(t) {

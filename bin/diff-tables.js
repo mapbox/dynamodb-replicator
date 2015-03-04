@@ -5,34 +5,59 @@ var diff = require('../diff');
 var split = require('split');
 var queue = require('queue-async');
 var fastlog = require('fastlog');
+var args = require('minimist')(process.argv.slice(2));
+
+function usage() {
+    console.error('');
+    console.error('Usage: diff-tables primary-region/primary-table replica-region/replica-table');
+    console.error('');
+    console.error('Options:');
+    console.error('  --repair     perform actions to fix discrepancies in the replica table');
+    console.error('  --segment    segment identifier (0-based)');
+    console.error('  --segments   total number of segments');
+    console.error('  --backfill   only scan primary table and write to replica');
+}
+
+if (args.help) {
+    usage();
+    process.exit(0);
+}
+
+config.log = fastlog('diff-tables', 'info');
+
+var primary = args._[0];
+var replica = args._[1];
+
+if (!primary) {
+    console.error('Must provide primary table information');
+    usage();
+    process.exit(1);
+}
+
+if (!replica) {
+    config.log.error('Must provide replica table information');
+    usage();
+    process.exit(1);
+}
+
+primary = primary.split('/');
+replica = replica.split('/');
 
 var config = {
     primary: {
-        region: process.env.PrimaryRegion,
-        table: process.env.PrimaryTable
+        region: primary[0],
+        table: primary[1]
     },
-    replica: {
-        region: process.env.ReplicaRegion,
-        table: process.env.ReplicaTable
-    }
+    repica: {
+        region: replica[0],
+        table: replica[1]
+    },
+    repair: !!args.repair,
+    segment: args.segment,
+    segments: args.segments,
+    backfill: args.backfill,
+    log: fastlog('diff-tables', 'info')
 };
-
-var args = require('minimist')(process.argv.slice(2));
-
-config.repair = !!args.repair;
-config.log = fastlog('diff-tables', 'info');
-
-if (args.primary) {
-    args.primary = args.primary.split('/');
-    config.primary.region = args.primary[0];
-    config.primary.table = args.primary[1];
-}
-
-if (args.replica) {
-    args.replica = args.replica.split('/');
-    config.replica.region = args.replica[0];
-    config.replica.table = args.replica[1];
-}
 
 diff(config, function(err, discrepancies) {
     if (err) {
