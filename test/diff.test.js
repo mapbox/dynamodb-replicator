@@ -4,62 +4,99 @@ var diff = require('../diff');
 var _ = require('underscore');
 var config = _(setup.config).clone();
 var fs = require('fs');
-var exec = require('child_process').exec;
+var util = require('util');
 
 var opts = { timeout: 600000 };
 
 test('setup', opts, setup.setup);
 
 test('diff: without repairs', opts, function(assert) {
-    diff(config, function(err, results) {
+    config.repair = false;
+    config.log = function() {
+        config.log.messages.push(util.format.apply(this, arguments));
+    };
+    config.log.messages = [];
+
+    diff(config, function(err, discrepancies) {
         assert.ifError(err, 'diff tables');
-        if (err) return assert.end();
+        if (err) return assert.end(err);
 
-        assert.equal(results.discrepancies, 2, 'two discrepacies');
+        console.log(config.log.messages.join('\n'));
 
-        var errors = fs.readFileSync(results.errors, 'utf8');
-        var missing = fs.readFileSync(results.missing, 'utf8');
-        var different = fs.readFileSync(results.different, 'utf8');
+        assert.equal(discrepancies, 4, 'four discrepacies');
 
-        assert.notOk(errors, 'no errors logged');
-        assert.equal(missing, '{"hash":"hash1","range":"range1"}\n', 'expected missing record');
-        assert.equal(different, '{"hash":"hash1","range":"range2"}\n', 'expected different record');
+        assert.deepEqual(config.log.messages, [
+            'Scanning primary table and comparing to replica',
+            '[missing in replica] {"hash":"hash1","range":"range1"}',
+            '[different in replica] {"hash":"hash1","range":"range2"}',
+            '[discrepancies] Scanning primary: 2',
+            'Scanning replica table and comparing to primary',
+            '[different in primary] {"hash":"hash1","range":"range2"}',
+            '[missing in primary] {"hash":"hash1","range":"range3"}',
+            '[discrepancies] Scanning replica: 2'
+        ]);
 
-        assert.end();
+        config.log.messages = [];
+        diff(config, function(err, discrepancies) {
+            assert.ifError(err, 'diff tables');
+            if (err) return assert.end();
+
+            assert.equal(discrepancies, 4, 'four discrepacies on second comparison');
+
+            assert.deepEqual(config.log.messages, [
+                'Scanning primary table and comparing to replica',
+                '[missing in replica] {"hash":"hash1","range":"range1"}',
+                '[different in replica] {"hash":"hash1","range":"range2"}',
+                '[discrepancies] Scanning primary: 2',
+                'Scanning replica table and comparing to primary',
+                '[different in primary] {"hash":"hash1","range":"range2"}',
+                '[missing in primary] {"hash":"hash1","range":"range3"}',
+                '[discrepancies] Scanning replica: 2'
+            ]);
+
+            assert.end();
+        });
     });
+
 });
 
 test('diff: with repairs', opts, function(assert) {
     config.repair = true;
+    config.log = function() {
+        config.log.messages.push(util.format.apply(this, arguments));
+    };
+    config.log.messages = [];
 
-    diff(config, function(err, results) {
+    diff(config, function(err, discrepancies) {
         assert.ifError(err, 'diff tables');
-        if (err) return assert.end();
+        if (err) return assert.end(err);
 
-        assert.equal(results.discrepancies, 2, 'two discrepacies');
+        assert.equal(discrepancies, 3, 'three discrepacies');
 
-        var errors = fs.readFileSync(results.errors, 'utf8');
-        var missing = fs.readFileSync(results.missing, 'utf8');
-        var different = fs.readFileSync(results.different, 'utf8');
-
-        assert.notOk(errors, 'no errors logged');
-        assert.equal(missing, '{"hash":"hash1","range":"range1"}\n', 'expected missing record');
-        assert.equal(different, '{"hash":"hash1","range":"range2"}\n', 'expected different record');
+        assert.deepEqual(config.log.messages, [
+            'Scanning primary table and comparing to replica',
+            '[missing in replica] {"hash":"hash1","range":"range1"}',
+            '[different in replica] {"hash":"hash1","range":"range2"}',
+            '[discrepancies] Scanning primary: 2',
+            'Scanning replica table and comparing to primary',
+            '[missing in primary] {"hash":"hash1","range":"range3"}',
+            '[discrepancies] Scanning replica: 1'
+        ]);
 
         config.repair = false;
-        diff(config, function(err, results) {
+        config.log.messages = [];
+        diff(config, function(err, discrepancies) {
             assert.ifError(err, 'diff tables');
             if (err) return assert.end();
 
-            assert.equal(results.discrepancies, 0, 'no discrepacies');
+            assert.equal(discrepancies, 0, 'no discrepacies on second comparison');
 
-            var errors = fs.readFileSync(results.errors, 'utf8');
-            var missing = fs.readFileSync(results.missing, 'utf8');
-            var different = fs.readFileSync(results.different, 'utf8');
-
-            assert.notOk(errors, 'no errors logged');
-            assert.notOk(missing, 'no missing logged');
-            assert.notOk(different, 'no different logged');
+            assert.deepEqual(config.log.messages, [
+                'Scanning primary table and comparing to replica',
+                '[discrepancies] Scanning primary: 0',
+                'Scanning replica table and comparing to primary',
+                '[discrepancies] Scanning replica: 0'
+            ]);
 
             assert.end();
         });
