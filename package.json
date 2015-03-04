@@ -4,6 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
+    "diff-tables": "bin/diff-tables.js",
     "test": "tap test/*.test.js"
   },
   "repository": {
