@@ -4,6 +4,7 @@ var fs = require('fs');
 var diff = require('../diff');
 var split = require('split');
 var queue = require('queue-async');
+var fastlog = require('fastlog');
 
 var config = {
     primary: {
@@ -19,7 +20,7 @@ var config = {
 var args = require('minimist')(process.argv.slice(2));
 
 config.repair = !!args.repair;
-config.parallel = Number(args.parallel);
+config.log = fastlog('diff-tables', 'info');
 
 if (args.primary) {
     args.primary = args.primary.split('/');
@@ -33,20 +34,9 @@ if (args.replica) {
     config.replica.table = args.replica[1];
 }
 
-diff(config, function(err, results) {
+diff(config, function(err, discrepancies) {
     if (err) {
-        console.error(err);
+        config.log.error(err);
         process.exit(1);
     }
-
-    console.log('Errors:');
-    console.log(fs.readFileSync(results.errors, 'utf8'));
-    console.log('Missing records:');
-    console.log(fs.readFileSync(results.missing, 'utf8'));
-    console.log('Different records:');
-    console.log(fs.readFileSync(results.different, 'utf8'));
-
-    var summary = 'Found ' + results.discrepancies + ' discrepancies';
-    if (args.repair) summary = summary + ' and repaired them';
-    console.log(summary);
 });
