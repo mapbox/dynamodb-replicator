@@ -9,7 +9,7 @@ module.exports = function(config, done) {
     primary.name = 'primary';
     replica.name = 'replica';
 
-    var log = config.log || function() {};
+    var log = config.log || console.log;
 
     var discrepancies = 0;
 
