@@ -23,19 +23,17 @@ test('diff: without repairs', opts, function(assert) {
         assert.ifError(err, 'diff tables');
         if (err) return assert.end(err);
 
-        console.log(config.log.messages.join('\n'));
-
         assert.equal(discrepancies, 4, 'four discrepacies');
 
         assert.deepEqual(config.log.messages, [
             'Scanning primary table and comparing to replica',
-            '[missing in replica] {"hash":"hash1","range":"range1"}',
-            '[different in replica] {"hash":"hash1","range":"range2"}',
-            '[discrepancies] Scanning primary: 2',
+            '[missing] {"hash":"hash1","range":"range1"}',
+            '[different] {"hash":"hash1","range":"range2"}',
+            '[discrepancies] 2',
             'Scanning replica table and comparing to primary',
-            '[different in primary] {"hash":"hash1","range":"range2"}',
-            '[missing in primary] {"hash":"hash1","range":"range3"}',
-            '[discrepancies] Scanning replica: 2'
+            '[different] {"hash":"hash1","range":"range2"}',
+            '[extraneous] {"hash":"hash1","range":"range3"}',
+            '[discrepancies] 2'
         ]);
 
         config.log.messages = [];
@@ -47,13 +45,13 @@ test('diff: without repairs', opts, function(assert) {
 
             assert.deepEqual(config.log.messages, [
                 'Scanning primary table and comparing to replica',
-                '[missing in replica] {"hash":"hash1","range":"range1"}',
-                '[different in replica] {"hash":"hash1","range":"range2"}',
-                '[discrepancies] Scanning primary: 2',
+                '[missing] {"hash":"hash1","range":"range1"}',
+                '[different] {"hash":"hash1","range":"range2"}',
+                '[discrepancies] 2',
                 'Scanning replica table and comparing to primary',
-                '[different in primary] {"hash":"hash1","range":"range2"}',
-                '[missing in primary] {"hash":"hash1","range":"range3"}',
-                '[discrepancies] Scanning replica: 2'
+                '[different] {"hash":"hash1","range":"range2"}',
+                '[extraneous] {"hash":"hash1","range":"range3"}',
+                '[discrepancies] 2'
             ]);
 
             assert.end();
@@ -74,12 +72,12 @@ test('diff: with repairs', opts, function(assert) {
 
         assert.deepEqual(config.log.messages, [
             'Scanning primary table and comparing to replica',
-            '[missing in replica] {"hash":"hash1","range":"range1"}',
-            '[different in replica] {"hash":"hash1","range":"range2"}',
-            '[discrepancies] Scanning primary: 2',
+            '[missing] {"hash":"hash1","range":"range1"}',
+            '[different] {"hash":"hash1","range":"range2"}',
+            '[discrepancies] 2',
             'Scanning replica table and comparing to primary',
-            '[missing in primary] {"hash":"hash1","range":"range3"}',
-            '[discrepancies] Scanning replica: 1'
+            '[extraneous] {"hash":"hash1","range":"range3"}',
+            '[discrepancies] 1'
         ]);
 
         config.repair = false;
@@ -92,9 +90,9 @@ test('diff: with repairs', opts, function(assert) {
 
             assert.deepEqual(config.log.messages, [
                 'Scanning primary table and comparing to replica',
-                '[discrepancies] Scanning primary: 0',
+                '[discrepancies] 0',
                 'Scanning replica table and comparing to primary',
-                '[discrepancies] Scanning replica: 0'
+                '[discrepancies] 0'
             ]);
 
             assert.end();
@@ -116,9 +114,9 @@ test('diff: backfill', opts, function(assert) {
         assert.equal(discrepancies, 2, 'two discrepacies');
         assert.deepEqual(config.log.messages, [
             'Scanning primary table and comparing to replica',
-            '[missing in replica] {"hash":"hash1","range":"range1"}',
-            '[different in replica] {"hash":"hash1","range":"range2"}',
-            '[discrepancies] Scanning primary: 2'
+            '[missing] {"hash":"hash1","range":"range1"}',
+            '[different] {"hash":"hash1","range":"range2"}',
+            '[discrepancies] 2'
         ]);
 
         config.repair = false;
@@ -130,7 +128,7 @@ test('diff: backfill', opts, function(assert) {
             assert.equal(discrepancies, 0, 'no discrepacies on second comparison');
             assert.deepEqual(config.log.messages, [
                 'Scanning primary table and comparing to replica',
-                '[discrepancies] Scanning primary: 0'
+                '[discrepancies] 0'
             ]);
 
             assert.end();

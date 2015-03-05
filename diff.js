@@ -15,8 +15,9 @@ module.exports = function(config, done) {
 
     var discrepancies = 0;
 
-    function Compare(read, write, keySchema, deleteMissing) {
+    function Compare(read, keySchema, deleteMissing) {
         var writable = new stream.Writable({ objectMode: true });
+        var noItem = deleteMissing ? 'extraneous' : 'missing';
 
         writable.discrepancies = 0;
 
@@ -31,17 +32,17 @@ module.exports = function(config, done) {
 
                 if (!item) {
                     writable.discrepancies++;
-                    log('[missing in %s] %j', read.name, key);
+                    log('[%s] %j', noItem, key);
                     if (!config.repair) return callback();
-                    if (deleteMissing) return write.deleteItem(key, callback);
-                    return write.putItem(record, callback);
+                    if (deleteMissing) return replica.deleteItem(key, callback);
+                    return replica.putItem(record, callback);
                 }
 
                 if (!_.isEqual(record, item)) {
                     writable.discrepancies++;
-                    log('[different in %s] %j', read.name, key);
+                    log('[different] %j', key);
                     if (!config.repair) return callback();
-                    return write.putItem(record, callback);
+                    return replica.putItem(record, callback);
                 }
 
                 callback();
@@ -52,13 +53,13 @@ module.exports = function(config, done) {
     }
 
     primary.describeTable(function(err, description) {
-        if (err) return callback(err);
+        if (err) return done(err);
         var keySchema = _(description.Table.KeySchema).pluck('AttributeName');
         scanPrimary(keySchema);
     });
 
     function scanPrimary(keySchema) {
-        var compare = Compare(replica, replica, keySchema, false);
+        var compare = Compare(replica, keySchema, false);
 
         log('Scanning primary table and comparing to replica');
 
@@ -68,14 +69,14 @@ module.exports = function(config, done) {
             .on('error', done)
             .on('finish', function() {
                 discrepancies += compare.discrepancies;
-                log('[discrepancies] Scanning primary: %s', compare.discrepancies);
+                log('[discrepancies] %s', compare.discrepancies);
                 if (!config.backfill) return scanReplica(keySchema);
                 done(null, discrepancies);
             });
     }
 
     function scanReplica(keySchema) {
-        var compare = Compare(primary, replica, keySchema, true);
+        var compare = Compare(primary, keySchema, true);
 
         log('Scanning replica table and comparing to primary');
 
@@ -85,7 +86,7 @@ module.exports = function(config, done) {
             .on('error', done)
             .on('finish', function() {
                 discrepancies += compare.discrepancies;
-                log('[discrepancies] Scanning replica: %s', compare.discrepancies);
+                log('[discrepancies] %s', compare.discrepancies);
                 done(null, discrepancies);
             });
     }

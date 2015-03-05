@@ -6,6 +6,7 @@ var split = require('split');
 var queue = require('queue-async');
 var fastlog = require('fastlog');
 var args = require('minimist')(process.argv.slice(2));
+var crypto = require('crypto');
 
 function usage() {
     console.error('');
@@ -41,7 +42,9 @@ if (!replica) {
 primary = primary.split('/');
 replica = replica.split('/');
 
-var log = fastlog('diff-tables', 'info');
+var jobid = crypto.randomBytes(8).toString('hex');
+var format = '[${timestamp}] [${level}] [${category}] [' + jobid + ']';
+var log = fastlog('diff-tables', 'info', format);
 
 var config = {
     primary: {
