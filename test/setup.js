@@ -157,9 +157,11 @@ var table = function(tableName) {
 
 var primaryItems = [
     {hash: 'hash1', range: 'range1', other:1},
-    {hash: 'hash1', range: 'range2', other:2}
+    {hash: 'hash1', range: 'range2', other:2},
+    {hash: 'hash1', range: 'range4', other: new Buffer('hello world')}
 ];
 var replicaItems = [
+    {hash: 'hash1', range: 'range2', other:10000},
     {hash: 'hash1', range: 'range3', other:3},
-    {hash: 'hash1', range: 'range2', other:10000}
+    {hash: 'hash1', range: 'range4', other: new Buffer('hello world')}
 ];

@@ -2,6 +2,7 @@ var _ = require('underscore');
 var queue = require('queue-async');
 var Dyno = require('dyno');
 var stream = require('stream');
+var assert = require('assert');
 
 module.exports = function(config, done) {
     var primary = Dyno(config.primary);
@@ -38,7 +39,8 @@ module.exports = function(config, done) {
                     return replica.putItem(record, callback);
                 }
 
-                if (!_.isEqual(record, item)) {
+                try { assert.deepEqual(record, item); }
+                catch (notEqual) {
                     writable.discrepancies++;
                     log('[different] %j', key);
                     if (!config.repair) return callback();
