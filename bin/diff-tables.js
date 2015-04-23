@@ -59,7 +59,11 @@ var config = {
     segment: args.segment,
     segments: args.segments,
     backfill: args.backfill,
-    log: log.info
+    log: log.info,
+    backup: {
+        bucket: args.bucket,
+        prefix: args.prefix
+    }
 };
 
 diff(config, function(err, discrepancies) {

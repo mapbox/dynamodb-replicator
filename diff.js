@@ -1,8 +1,10 @@
 var _ = require('underscore');
-var queue = require('queue-async');
 var Dyno = require('dyno');
 var stream = require('stream');
 var assert = require('assert');
+var fs = require('fs');
+var AWS = require('aws-sdk');
+var s3Stream = require('s3-upload-stream')(new AWS.S3());
 
 module.exports = function(config, done) {
     var primary = Dyno(config.primary);
@@ -14,7 +16,47 @@ module.exports = function(config, done) {
     var scanOpts = config.hasOwnProperty('segment') && config.segments ?
         { segment: config.segment, segments: config.segments } : undefined;
 
+    if (config.backup && config.segments)
+        return done(new Error('Parallel backups are not supported at this time'));
+
+    if (config.backup)
+        if (!config.backup.bucket || !config.backup.prefix)
+            return done(new Error('Must provide a bucket and prefix for backups'));
+
     var discrepancies = 0;
+
+    var writeFile = new stream.Transform({ objectMode: true });
+
+    writeFile.start = function() {
+        writeFile.upload = s3Stream.upload({
+            Bucket: config.backup.bucket,
+            Key: [config.backup.prefix, Date.now() + '.json'].join('/')
+        }).on('error', function(err) {
+            writeFile.emit('error', err);
+        });
+    };
+
+    writeFile._transform = function(record, enc, callback) {
+        writeFile.upload.write(JSON.stringify(record, replacer) + '\n');
+        this.push(record);
+        callback();
+    };
+
+    writeFile._flush = function(callback) {
+        writeFile.upload.on('uploaded', function(uploadInfo) {
+            if (config.backup) log('Uploaded dynamo backup to ' + config.backup.bucket + '/' + config.backup.prefix);
+            callback();
+        });
+        writeFile.upload.end();
+    };
+
+    function replacer(key) {
+        var value = this[key];
+        if (Buffer.isBuffer(value)) {
+            return value.toString('base64');
+        }
+        return value;
+    }
 
     function Compare(read, keySchema, deleteMissing) {
         var writable = new stream.Writable({ objectMode: true });
@@ -65,8 +107,13 @@ module.exports = function(config, done) {
 
         log('Scanning primary table and comparing to replica');
 
-        primary.scan(scanOpts)
-            .on('error', done)
+        var pipeline = primary.scan(scanOpts).on('error', done);
+        if (config.backup) {
+            writeFile.start();
+            pipeline = pipeline.pipe(writeFile).on('error', done);
+        }
+
+        pipeline
             .pipe(compare)
             .on('error', done)
             .on('finish', function() {
