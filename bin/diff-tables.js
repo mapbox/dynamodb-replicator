@@ -63,7 +63,7 @@ var config = {
     backup: {
         bucket: args._[2],
         prefix: args._[3]
-    }sil
+    }
 };
 
 diff(config, function(err, discrepancies) {
