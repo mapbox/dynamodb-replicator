@@ -4,13 +4,19 @@ var Dyno = require('dyno');
 var args = require('minimist')(process.argv.slice(2));
 var assert = require('assert');
 
-var table = args._[0];
-if (!table) {
-    console.error('You must specify the name of the table');
+var primary = args._[0];
+if (!primary) {
+    console.error('You must specify the primary region/table');
     process.exit(1);
 }
 
-var key = args._[1];
+var replica = args._[1];
+if (!primary) {
+    console.error('You must specify the replica region/table');
+    process.exit(1);
+}
+
+var key = args._[2];
 if (!key) {
     console.error('You must specify the key for the record to check');
     process.exit(1);
@@ -18,18 +24,19 @@ if (!key) {
 
 try { key = JSON.parse(key); }
 catch (err) {
+    console.error(key);
     console.error('The key provided is not a valid JSON string');
     process.exit(1);
 }
 
 var primary = Dyno({
-    table: table,
-    region: args.primary || 'us-east-1'
+    table: primary.split('/')[1],
+    region: primary.split('/')[0]
 });
 
 var replica = Dyno({
-    table: table,
-    region: args.replica || 'eu-west-1'
+    table: replica.split('/')[1],
+    region: replica.split('/')[0]
 });
 
 primary.getItem(key, function(err, primaryRecord) {
@@ -38,13 +45,26 @@ primary.getItem(key, function(err, primaryRecord) {
     replica.getItem(key, function(err, replicaRecord) {
         if (err) throw err;
 
-        console.log('--- Primary record ---');
+        console.log('Primary record');
+        console.log('--------------');
         console.log(primaryRecord);
+        console.log('');
 
-        console.log('--- Replica record ---');
+        console.log('Replica record');
+        console.log('--------------');
         console.log(replicaRecord);
+        console.log('');
 
-        assert.deepEqual(replicaRecord, primaryRecord, '--- The records are not equivalent ---');
-        console.log('--- The records are equivalent ---');
+        try {
+            assert.deepEqual(replicaRecord, primaryRecord);
+            console.log('----------------------------');
+            console.log('✔ The records are equivalent');
+            console.log('----------------------------');
+        }
+        catch (err) {
+            console.log('--------------------------------');
+            console.log('✘ The records are not equivalent');
+            console.log('--------------------------------');
+        }
     });
 });
