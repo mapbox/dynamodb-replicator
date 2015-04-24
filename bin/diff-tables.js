@@ -61,8 +61,8 @@ var config = {
     backfill: args.backfill,
     log: log.info,
     backup: {
-        bucket: args._[2],
-        prefix: args._[3]
+        bucket: args.bucket,
+        prefix: args.prefix
     }
 };
 
