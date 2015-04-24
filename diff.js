@@ -16,7 +16,7 @@ module.exports = function(config, done) {
     var scanOpts = config.hasOwnProperty('segment') && config.segments ?
         { segment: config.segment, segments: config.segments } : undefined;
 
-    if (config.backup && config.segments)
+    if (config.backup && config.segments > 0)
         return done(new Error('Parallel backups are not supported at this time'));
 
     if (config.backup)
