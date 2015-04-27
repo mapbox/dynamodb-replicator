@@ -141,7 +141,7 @@ test('diff: backfill', opts, function(assert) {
                 'Key': res.Contents[0].Key
             }, function(error, response){
                 if (error) return assert.end();
-                assert.equal(response.Body.toString(), '{"hash":"hash1","range":"range1","other":1}\n{"hash":"hash1","range":"range2","other":2}\n{"hash":"hash1","range":"range4","other":"aGVsbG8gd29ybGQ="}\n')
+                assert.equal(response.Body.toString(), '{"hash":"hash1","range":"range1","other":1}\n{"hash":"hash1","range":"range2","other":2}\n{"hash":"hash1","range":"range4","other":"base64:aGVsbG8gd29ybGQ="}\n')
             });
         });
 

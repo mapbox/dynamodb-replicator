@@ -16,7 +16,6 @@ module.exports = function(config, done) {
     var scanOpts = config.hasOwnProperty('segment') && config.segments ?
         { segment: config.segment, segments: config.segments } : undefined;
 
-    console.log(config)
     if (config.backup && config.segments > 1)
         return done(new Error('Parallel backups are not supported at this time'));
 
@@ -38,9 +37,10 @@ module.exports = function(config, done) {
     };
 
     writeFile._transform = function(record, enc, callback) {
-        writeFile.upload.write(JSON.stringify(record, replacer) + '\n');
+        var ready = writeFile.upload.write(JSON.stringify(record, replacer) + '\n');
         this.push(record);
-        callback();
+        if (ready) return callback();
+        writeFile.upload.on('drain', callback);
     };
 
     writeFile._flush = function(callback) {
@@ -53,9 +53,7 @@ module.exports = function(config, done) {
 
     function replacer(key) {
         var value = this[key];
-        if (Buffer.isBuffer(value)) {
-            return value.toString('base64');
-        }
+        if (Buffer.isBuffer(value)) return 'base64:' + value.toString('base64');
         return value;
     }
 
