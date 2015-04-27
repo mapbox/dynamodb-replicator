@@ -27,15 +27,16 @@ test('diff: without repairs', opts, function(assert) {
         assert.equal(discrepancies, 4, 'four discrepacies');
 
         assert.deepEqual(config.log.messages, [
-            'Scanning primary table and comparing to replica',
-            '[missing] {"hash":"hash1","range":"range1"}',
-            '[different] {"hash":"hash1","range":"range2"}',
-            'Uploaded dynamo backup to mapbox/dynamodb-replicator/test',
-            '[discrepancies] 2',
-            'Scanning replica table and comparing to primary',
-            '[different] {"hash":"hash1","range":"range2"}',
-            '[extraneous] {"hash":"hash1","range":"range3"}',
-            '[discrepancies] 2'
+            '[repair] Scanning primary table and comparing to replica',
+            '[repair] [missing] {"hash":"hash1","range":"range1"}',
+            '[repair] [different] {"hash":"hash1","range":"range2"}',
+            '[backup] Uploaded 156 bytes to part 1',
+            '[backup] Uploaded dynamo backup to mapbox/dynamodb-replicator/test',
+            '[repair] [discrepancies] 2',
+            '[repair] Scanning replica table and comparing to primary',
+            '[repair] [different] {"hash":"hash1","range":"range2"}',
+            '[repair] [extraneous] {"hash":"hash1","range":"range3"}',
+            '[repair] [discrepancies] 2'
         ]);
 
         config.log.messages = [];
@@ -46,15 +47,16 @@ test('diff: without repairs', opts, function(assert) {
             assert.equal(discrepancies, 4, 'four discrepacies on second comparison');
 
             assert.deepEqual(config.log.messages, [
-                'Scanning primary table and comparing to replica',
-                '[missing] {"hash":"hash1","range":"range1"}',
-                '[different] {"hash":"hash1","range":"range2"}',
-                'Uploaded dynamo backup to mapbox/dynamodb-replicator/test',
-                '[discrepancies] 2',
-                'Scanning replica table and comparing to primary',
-                '[different] {"hash":"hash1","range":"range2"}',
-                '[extraneous] {"hash":"hash1","range":"range3"}',
-                '[discrepancies] 2'
+                '[repair] Scanning primary table and comparing to replica',
+                '[repair] [missing] {"hash":"hash1","range":"range1"}',
+                '[repair] [different] {"hash":"hash1","range":"range2"}',
+                '[backup] Uploaded 156 bytes to part 1',
+                '[backup] Uploaded dynamo backup to mapbox/dynamodb-replicator/test',
+                '[repair] [discrepancies] 2',
+                '[repair] Scanning replica table and comparing to primary',
+                '[repair] [different] {"hash":"hash1","range":"range2"}',
+                '[repair] [extraneous] {"hash":"hash1","range":"range3"}',
+                '[repair] [discrepancies] 2'
             ]);
 
             assert.end();
@@ -74,14 +76,15 @@ test('diff: with repairs', opts, function(assert) {
         assert.equal(discrepancies, 3, 'three discrepacies');
 
         assert.deepEqual(config.log.messages, [
-            'Scanning primary table and comparing to replica',
-            '[missing] {"hash":"hash1","range":"range1"}',
-            '[different] {"hash":"hash1","range":"range2"}',
-            'Uploaded dynamo backup to mapbox/dynamodb-replicator/test',
-            '[discrepancies] 2',
-            'Scanning replica table and comparing to primary',
-            '[extraneous] {"hash":"hash1","range":"range3"}',
-            '[discrepancies] 1'
+            '[repair] Scanning primary table and comparing to replica',
+            '[repair] [missing] {"hash":"hash1","range":"range1"}',
+            '[repair] [different] {"hash":"hash1","range":"range2"}',
+            '[backup] Uploaded 156 bytes to part 1',
+            '[backup] Uploaded dynamo backup to mapbox/dynamodb-replicator/test',
+            '[repair] [discrepancies] 2',
+            '[repair] Scanning replica table and comparing to primary',
+            '[repair] [extraneous] {"hash":"hash1","range":"range3"}',
+            '[repair] [discrepancies] 1'
         ]);
 
         config.repair = false;
@@ -93,11 +96,12 @@ test('diff: with repairs', opts, function(assert) {
             assert.equal(discrepancies, 0, 'no discrepacies on second comparison');
 
             assert.deepEqual(config.log.messages, [
-                'Scanning primary table and comparing to replica',
-                'Uploaded dynamo backup to mapbox/dynamodb-replicator/test',
-                '[discrepancies] 0',
-                'Scanning replica table and comparing to primary',
-                '[discrepancies] 0'
+                '[repair] Scanning primary table and comparing to replica',
+                '[backup] Uploaded 156 bytes to part 1',
+                '[backup] Uploaded dynamo backup to mapbox/dynamodb-replicator/test',
+                '[repair] [discrepancies] 0',
+                '[repair] Scanning replica table and comparing to primary',
+                '[repair] [discrepancies] 0'
             ]);
 
             assert.end();
@@ -124,11 +128,12 @@ test('diff: backfill', opts, function(assert) {
 
         assert.equal(discrepancies, 2, 'two discrepacies');
         assert.deepEqual(config.log.messages, [
-            'Scanning primary table and comparing to replica',
-            '[missing] {"hash":"hash1","range":"range1"}',
-            '[different] {"hash":"hash1","range":"range2"}',
-            'Uploaded dynamo backup to mapbox/dynamodb-replicator/test/' + randomNumber,
-            '[discrepancies] 2'
+            '[repair] Scanning primary table and comparing to replica',
+            '[repair] [missing] {"hash":"hash1","range":"range1"}',
+            '[repair] [different] {"hash":"hash1","range":"range2"}',
+            '[backup] Uploaded 156 bytes to part 1',
+            '[backup] Uploaded dynamo backup to mapbox/dynamodb-replicator/test/' + randomNumber,
+            '[repair] [discrepancies] 2'
         ]);
 
         s3.listObjects({
@@ -157,9 +162,10 @@ test('diff: backfill', opts, function(assert) {
 
             assert.equal(discrepancies, 0, 'no discrepacies on second comparison');
             assert.deepEqual(config.log.messages, [
-                'Scanning primary table and comparing to replica',
-                'Uploaded dynamo backup to mapbox/dynamodb-replicator/test',
-                '[discrepancies] 0'
+                '[repair] Scanning primary table and comparing to replica',
+                '[backup] Uploaded 156 bytes to part 1',
+                '[backup] Uploaded dynamo backup to mapbox/dynamodb-replicator/test',
+                '[repair] [discrepancies] 0'
             ]);
 
             assert.end();
@@ -181,10 +187,10 @@ test('diff: backfill', opts, function(assert) {
 
         assert.equal(discrepancies, 2, 'two discrepacies');
         assert.deepEqual(config.log.messages, [
-            'Scanning primary table and comparing to replica',
-            '[missing] {"hash":"hash1","range":"range1"}',
-            '[different] {"hash":"hash1","range":"range2"}',
-            '[discrepancies] 2'
+            '[repair] Scanning primary table and comparing to replica',
+            '[repair] [missing] {"hash":"hash1","range":"range1"}',
+            '[repair] [different] {"hash":"hash1","range":"range2"}',
+            '[repair] [discrepancies] 2'
         ]);
 
         config.repair = false;
@@ -195,8 +201,8 @@ test('diff: backfill', opts, function(assert) {
 
             assert.equal(discrepancies, 0, 'no discrepacies on second comparison');
             assert.deepEqual(config.log.messages, [
-                'Scanning primary table and comparing to replica',
-                '[discrepancies] 0'
+                '[repair] Scanning primary table and comparing to replica',
+                '[repair] [discrepancies] 0'
             ]);
 
             assert.end();

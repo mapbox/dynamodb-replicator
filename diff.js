@@ -33,6 +33,8 @@ module.exports = function(config, done) {
             Key: [config.backup.prefix, Date.now() + '.json'].join('/')
         }).on('error', function(err) {
             writeFile.emit('error', err);
+        }).on('part', function(details) {
+            log('[backup] Uploaded %s bytes to part %s', details.uploadedSize, details.PartNumber);
         });
     };
 
@@ -45,7 +47,7 @@ module.exports = function(config, done) {
 
     writeFile._flush = function(callback) {
         writeFile.upload.on('uploaded', function(uploadInfo) {
-            if (config.backup) log('Uploaded dynamo backup to ' + config.backup.bucket + '/' + config.backup.prefix);
+            log('[backup] Uploaded dynamo backup to ' + config.backup.bucket + '/' + config.backup.prefix);
             callback();
         });
         writeFile.upload.end();
@@ -74,7 +76,7 @@ module.exports = function(config, done) {
 
                 if (!item) {
                     writable.discrepancies++;
-                    log('[%s] %j', noItem, key);
+                    log('[repair] [%s] %j', noItem, key);
                     if (!config.repair) return callback();
                     if (deleteMissing) return replica.deleteItem(key, callback);
                     return replica.putItem(record, callback);
@@ -83,7 +85,7 @@ module.exports = function(config, done) {
                 try { assert.deepEqual(record, item); }
                 catch (notEqual) {
                     writable.discrepancies++;
-                    log('[different] %j', key);
+                    log('[repair] [different] %j', key);
                     if (!config.repair) return callback();
                     return replica.putItem(record, callback);
                 }
@@ -104,7 +106,7 @@ module.exports = function(config, done) {
     function scanPrimary(keySchema) {
         var compare = Compare(replica, keySchema, false);
 
-        log('Scanning primary table and comparing to replica');
+        log('[repair] Scanning primary table and comparing to replica');
 
         var pipeline = primary.scan(scanOpts).on('error', done);
         if (config.backup) {
@@ -117,7 +119,7 @@ module.exports = function(config, done) {
             .on('error', done)
             .on('finish', function() {
                 discrepancies += compare.discrepancies;
-                log('[discrepancies] %s', compare.discrepancies);
+                log('[repair] [discrepancies] %s', compare.discrepancies);
                 if (!config.backfill) return scanReplica(keySchema);
                 done(null, discrepancies);
             });
@@ -126,7 +128,7 @@ module.exports = function(config, done) {
     function scanReplica(keySchema) {
         var compare = Compare(primary, keySchema, true);
 
-        log('Scanning replica table and comparing to primary');
+        log('[repair] Scanning replica table and comparing to primary');
 
         replica.scan(scanOpts)
             .on('error', done)
@@ -134,7 +136,7 @@ module.exports = function(config, done) {
             .on('error', done)
             .on('finish', function() {
                 discrepancies += compare.discrepancies;
-                log('[discrepancies] %s', compare.discrepancies);
+                log('[repair] [discrepancies] %s', compare.discrepancies);
                 done(null, discrepancies);
             });
     }
