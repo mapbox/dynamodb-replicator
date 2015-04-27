@@ -1,3 +1,5 @@
+[![](https://api.travis-ci.org/mapbox/dynamodb-replicator.svg)](https://travis-ci.org/mapbox/dynamodb-replicator/builds)
+
 # dynamodb-replicator
 
 [dynamodb-replicator](https://github.com/mapbox/dynamodb-replicator) consumes a Kinesis stream of DynamoDB changes (keys-only) and writes them to a replica DynamoDB table. dynamodb-replicator is compatible with the upcoming DynamoDB streams ([in preview](http://dynamodb-preview.s3-website-us-west-2.amazonaws.com/docs/streams-dg/About.html)) as well as [dyno](https://github.com/mapbox/dyno) with Kinesis ([available already](https://github.com/mapbox/dyno#multi--kinesisconfig)).
@@ -11,6 +13,7 @@
 - Stream consists of object ids only (_KEYS_ONLY_), no changes or full items
 - Compatible with [upcoming DynamoDB Streams](http://dynamodb-preview.s3-website-us-west-2.amazonaws.com/docs/streams-dg/About.html) and current [dyno with Kinesis](https://github.com/mapbox/dyno#multi--kinesisconfig)
 - Ability to replay old stream events for bootstrapping a new replica, disaster recovery and ensuring consistency
+- Automatic backups to s3
 
 ### Design
 
@@ -34,6 +37,10 @@ var config = {
     replica: {
         region: process.env.ReplicaRegion,
         table: process.env.ReplicaTable
+    },
+    backup = {
+        bucket: 'data',
+        prefix: 'dynamo-backup',
     }
 };
 

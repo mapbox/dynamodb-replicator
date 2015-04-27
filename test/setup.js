@@ -1,15 +1,20 @@
-var test = require('tap').test;
+var test = require('tape');
 var queue = require('queue-async');
 var crypto = require('crypto');
 var Dynalite = require('dynalite');
+
 var dynalite;
 
 module.exports = function(live) {
     live = !!live;
 
     var setup = {};
-
     var config = setup.config = {};
+
+    config.backup = {
+        bucket: 'mapbox',
+        prefix: 'dynamodb-replicator/test',
+    }
 
     if (live) {
         config.replica = {
