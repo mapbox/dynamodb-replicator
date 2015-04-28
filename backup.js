@@ -33,9 +33,9 @@ module.exports = function(config, done) {
     writeBackup.count = 0;
 
     writeBackup._transform = function(record, enc, callback) {
-        var line = JSON.stringify(record, function(key) {
-            var value = this[key];
-            if (Buffer.isBuffer(value)) return 'base64:' + value.toString('base64');
+        var line = JSON.stringify(record, function(key, value) {
+            var val = this[key];
+            if (Buffer.isBuffer(val)) return 'base64:' + val.toString('base64');
             return value;
         });
 
