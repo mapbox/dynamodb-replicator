@@ -6,7 +6,7 @@ var stream = require('stream');
 
 module.exports = function(config, done) {
     var primary = Dyno(config);
-    var throughput = require('dynamodb-throughput')(config.table, { region: config.region });
+    var throughput = require('dynamodb-throughput')(config.table, config);
 
     var log = config.log || console.log;
     var scanOpts = config.hasOwnProperty('segment') && config.segments ?
