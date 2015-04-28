@@ -1,11 +1,9 @@
-var test = require('tap').test;
+var test = require('tape');
 var setup = require('./setup')(process.env.LIVE_TEST);
 var diff = require('../diff');
 var _ = require('underscore');
 var fs = require('fs');
 var util = require('util');
-
-var opts = { timeout: 600000 };
 
 var config = _(setup.config).clone();
 config.log = function() {
@@ -13,9 +11,9 @@ config.log = function() {
 };
 config.log.messages = [];
 
-test('setup', opts, setup.setup);
+test('setup', setup.setup);
 
-test('diff: without repairs', opts, function(assert) {
+test('diff: without repairs', function(assert) {
     config.repair = false;
     config.log.messages = [];
 
@@ -60,7 +58,7 @@ test('diff: without repairs', opts, function(assert) {
 
 });
 
-test('diff: with repairs', opts, function(assert) {
+test('diff: with repairs', function(assert) {
     config.repair = true;
     config.log.messages = [];
 
@@ -101,8 +99,8 @@ test('diff: with repairs', opts, function(assert) {
 });
 test('teardown', setup.teardown);
 
-test('setup', opts, setup.setup);
-test('diff: backfill', opts, function(assert) {
+test('setup', setup.setup);
+test('diff: backfill', function(assert) {
     config.repair = true;
     config.backfill = true;
     config.log.messages = [];
@@ -137,8 +135,8 @@ test('diff: backfill', opts, function(assert) {
 });
 test('teardown', setup.teardown);
 
-test('setup', opts, setup.setup);
-test('diff: parallel', opts, function(assert) {
+test('setup', setup.setup);
+test('diff: parallel', function(assert) {
     config.repair = false;
     config.backfill = false;
     config.segment = 0;
@@ -158,4 +156,4 @@ test('diff: parallel', opts, function(assert) {
     });
 });
 
-test('teardown', opts, setup.teardown);
+test('teardown', setup.teardown);

@@ -1,4 +1,4 @@
-var test = require('tap').test,
+var test = require('tape'),
     fs = require('fs'),
     queue = require('queue-async');
 var s = require('./setup')();
