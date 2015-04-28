@@ -40,11 +40,10 @@ module.exports = function(config, done) {
         });
 
         var ready = writeBackup.upload.write(line + '\n');
-        this.push(record);
         writeBackup.count++;
 
         if (ready) return callback();
-        writeBackup.upload.on('drain', callback);
+        writeBackup.upload.once('drain', callback);
     };
 
     writeBackup._flush = function(callback) {
@@ -65,7 +64,8 @@ module.exports = function(config, done) {
                 .on('error', next)
                 .pipe(writeBackup)
                 .on('error', next)
-                .on('finish', next);
+                .on('end', next)
+                .resume();
         })
         .awaitAll(function(backupErr) {
             throughput.resetCapacity(function(resetErr) {
