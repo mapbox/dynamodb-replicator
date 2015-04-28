@@ -43,7 +43,9 @@ module.exports = function(live) {
     dynos.primary = require('dyno')(config.primary);
     dynos.replica = require('dyno')(config.replica);
 
-    setup.setup = function(t) {
+    setup.setup = function(assert) {
+        assert.timeoutAfter(600000);
+
         if (live) return setupTables();
 
         dynalite = Dynalite({
@@ -53,7 +55,7 @@ module.exports = function(live) {
         });
 
         dynalite.listen(4567, function() {
-            t.pass('dynalite listening');
+            assert.pass('dynalite listening');
             setupTables();
         });
 
@@ -69,8 +71,8 @@ module.exports = function(live) {
             });
 
             q.awaitAll(function(err, resp) {
-                t.notOk(err, 'no error creating tables');
-                t.end();
+                assert.notOk(err, 'no error creating tables');
+                assert.end();
             });
         }
     };
@@ -108,17 +110,19 @@ module.exports = function(live) {
         q.awaitAll(callback);
     };
 
-    setup.teardown = function(t) {
+    setup.teardown = function(assert) {
+        assert.timeoutAfter(600000);
+
         if (!live) {
             dynalite.close();
-            return t.end();
+            return assert.end();
         }
 
         queue(1)
             .defer(dynos.primary.deleteTable, config.primary.table)
             .defer(dynos.replica.deleteTable, config.replica.table)
             .awaitAll(function(err) {
-                t.end(err);
+                assert.end(err);
             });
     };
 
