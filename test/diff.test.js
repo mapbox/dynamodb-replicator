@@ -1,4 +1,4 @@
-var test = require('tap').test;
+var test = require('tape');
 var setup = require('./setup')(process.env.LIVE_TEST);
 var diff = require('../diff');
 var _ = require('underscore');

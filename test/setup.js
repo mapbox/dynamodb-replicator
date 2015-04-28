@@ -1,4 +1,4 @@
-var test = require('tap').test;
+var test = require('tape');
 var queue = require('queue-async');
 var crypto = require('crypto');
 var Dynalite = require('dynalite');

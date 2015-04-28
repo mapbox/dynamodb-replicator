@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "tap test/*.test.js"
+    "test": "tape test/*.test.js"
   },
   "bin": {
     "diff-tables": "bin/diff-tables.js",
@@ -36,6 +36,6 @@
   },
   "devDependencies": {
     "dynalite": "^0.5.2",
-    "tap": "^0.6.0"
+    "tape": "^4.0.0"
   }
 }
