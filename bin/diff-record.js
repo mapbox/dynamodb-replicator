@@ -4,14 +4,14 @@ var Dyno = require('dyno');
 var args = require('minimist')(process.argv.slice(2));
 var assert = require('assert');
 
-var primary = args._[0];
-if (!primary) {
+args.primary = args._[0];
+if (!args.primary) {
     console.error('You must specify the primary region/table');
     process.exit(1);
 }
 
-var replica = args._[1];
-if (!primary) {
+args.replica = args._[1];
+if (!args.replica) {
     console.error('You must specify the replica region/table');
     process.exit(1);
 }
@@ -29,15 +29,31 @@ catch (err) {
     process.exit(1);
 }
 
-var primary = Dyno({
-    table: primary.split('/')[1],
-    region: primary.split('/')[0]
-});
+var primaryConfig = {
+    table: args.primary.split('/')[1],
+    region: args.primary.split('/')[0]
+};
 
-var replica = Dyno({
-    table: replica.split('/')[1],
-    region: replica.split('/')[0]
-});
+if (primaryConfig.region === 'local') {
+    primaryConfig.accessKeyId = 'fake';
+    primaryConfig.secretAccessKey = 'fake';
+    primaryConfig.endpoint = 'http://localhost:4567';
+}
+
+var primary = Dyno(primaryConfig);
+
+var replicaConfig = {
+    table: args.replica.split('/')[1],
+    region: args.replica.split('/')[0]
+};
+
+if (replicaConfig.region === 'local') {
+    replicaConfig.accessKeyId = 'fake';
+    replicaConfig.secretAccessKey = 'fake';
+    replicaConfig.endpoint = 'http://localhost:4567';
+}
+
+var replica = Dyno(replicaConfig);
 
 primary.getItem(key, function(err, primaryRecord) {
     if (err) throw err;

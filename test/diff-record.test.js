@@ -1,4 +1,4 @@
-var setup = require('./setup')(true);
+var setup = require('./setup')();
 var exec = require('child_process').exec;
 var test = require('tape');
 var queue = require('queue-async');
@@ -10,8 +10,8 @@ test('diff-record', function(assert) {
         .defer(function(next) {
             var cmd = [
                 diffRecord,
-                setup.config.primary.region + '/' + setup.config.primary.table,
-                setup.config.replica.region + '/' + setup.config.replica.table,
+                'local/' + setup.config.primary.table,
+                'local/' + setup.config.replica.table,
                 '\'{"hash":"hash1","range":"range2"}\''
             ].join(' ');
             exec(cmd, function(err, stdout, stderr) {
@@ -23,8 +23,8 @@ test('diff-record', function(assert) {
         .defer(function(next) {
             var cmd = [
                 diffRecord,
-                setup.config.primary.region + '/' + setup.config.primary.table,
-                setup.config.replica.region + '/' + setup.config.replica.table,
+                'local/' + setup.config.primary.table,
+                'local/' + setup.config.replica.table,
                 '\'{"hash":"hash1","range":"range4"}\''
             ].join(' ');
             exec(cmd, function(err, stdout, stderr) {
