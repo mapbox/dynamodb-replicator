@@ -60,7 +60,7 @@ var config = {
     }
 };
 
-log.info('[segment %s] Starting backup of %s', index, jobid, args._[0]);
+log.info('[segment %s] Starting backup job %s of %s', index, jobid, args._[0]);
 backup(config, function(err) {
     if (err) {
         log.error(err);

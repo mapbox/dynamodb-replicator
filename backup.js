@@ -27,7 +27,7 @@ module.exports = function(config, done) {
     }).on('error', function(err) {
         writeBackup.emit('error', err);
     }).on('part', function(details) {
-        log('[segment %s] Uploaded part #%s for total %s bytes uploaded', details.PartNumber, details.uploadedSize);
+        log('[segment %s] Uploaded part #%s for total %s bytes uploaded', index, details.PartNumber, details.uploadedSize);
     });
 
     writeBackup.count = 0;
@@ -61,10 +61,6 @@ module.exports = function(config, done) {
     queue(1)
         .defer(throughput.setCapacity, { read: 1000 })
         .defer(function(next) {
-            report = setInterval(function() {
-                log('[segment %s] Wrote %s items to backup', index, writeBackup.count);
-            }, 1 * 1000);
-
             primary.scan(scanOpts)
                 .on('error', next)
                 .pipe(writeBackup)
@@ -72,8 +68,6 @@ module.exports = function(config, done) {
                 .on('finish', next);
         })
         .awaitAll(function(backupErr) {
-            clearInterval(report);
-
             throughput.resetCapacity(function(resetErr) {
                 if (backupErr) return done(backupErr);
                 if (resetErr) return done(resetErr);
