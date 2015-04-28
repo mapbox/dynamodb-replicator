@@ -26,6 +26,8 @@ module.exports = function(config, done) {
         Key: key
     }).on('error', function(err) {
         writeBackup.emit('error', err);
+    }).on('part', function(details) {
+        log('[segment %s] Uploaded part #%s for total %s bytes uploaded', details.PartNumber, details.uploadedSize);
     });
 
     writeBackup.count = 0;
@@ -37,10 +39,12 @@ module.exports = function(config, done) {
             return value;
         });
 
-        writeBackup.upload.write(line + '\n');
+        var ready = writeBackup.upload.write(line + '\n');
         this.push(record);
         writeBackup.count++;
-        callback();
+
+        if (ready) return callback();
+        writeBackup.upload.on('drain', callback);
     };
 
     writeBackup._flush = function(callback) {
