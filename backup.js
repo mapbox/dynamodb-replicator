@@ -55,7 +55,7 @@ module.exports = function(config, done) {
         writeBackup.upload.end();
     };
 
-    log('[segment %s] Starting backup job %s of %s', index, config.jobid, config.region + '/' + config.table);
+    log('[segment %s] Starting backup job %s of %s', index, config.backup.jobid, config.region + '/' + config.table);
 
     queue(1)
         .defer(throughput.setCapacity, { read: 1000 })
