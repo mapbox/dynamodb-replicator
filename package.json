@@ -22,7 +22,7 @@
   "homepage": "https://github.com/mapbox/dynamodb-replicator",
   "dependencies": {
     "aws-sdk": "^2.1.24",
-    "dynamodb-throughput": "0.0.5",
+    "dynamodb-throughput": "^0.1.0",
     "dyno": "^0.11.0",
     "event-stream": "^3.2.2",
     "fastlog": "^1.0.0",

@@ -58,7 +58,7 @@ module.exports = function(config, done) {
     log('[segment %s] Starting backup job %s of %s', index, config.backup.jobid, config.region + '/' + config.table);
 
     queue(1)
-        .defer(throughput.setCapacity, { read: 1000 })
+        .defer(throughput.adjustCapacity, { read: 1000 })
         .defer(function(next) {
             primary.scan(scanOpts)
                 .on('error', next)
