@@ -22,9 +22,12 @@ test('backup: one segment', function(assert) {
         endpoint: setup.config.primary.endpoint
     };
 
-    backup(config, function(err) {
+    backup(config, function(err, details) {
         assert.ifError(err, 'backup completed');
         if (err) return assert.end();
+
+        assert.equal(details.count, 3, 'reported 3 records');
+        assert.equal(details.size, 156, 'reported 156 bytes');
 
         s3.getObject({
             Bucket: 'mapbox',
@@ -91,6 +94,9 @@ test('backup: parallel', function(assert) {
         .awaitAll(function(err, results) {
             assert.ifError(err, 'all requests completed');
             if (err) return assert.end();
+
+            assert.equal(results[0].count + results[1].count, 1003, 'reported 1003 records');
+            assert.equal(results[0].size + results[1].size, 85156, 'reported 85156 bytes');
 
             var data = results.slice(2).map(function(s3result) {
                 return s3result.Body.toString().trim().split('\n');

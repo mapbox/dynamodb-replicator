@@ -6,6 +6,7 @@ var fastlog = require('fastlog');
 var args = require('minimist')(process.argv.slice(2));
 var crypto = require('crypto');
 var s3urls = require('s3urls');
+var AWS = require('aws-sdk');
 
 function usage() {
     console.error('');
@@ -15,6 +16,7 @@ function usage() {
     console.error('  --jobid      assign a jobid to this backup');
     console.error('  --segment    segment identifier (0-based)');
     console.error('  --segments   total number of segments');
+    console.error('  --metric     cloudwatch metric given as namespace/metric-name');
 }
 
 if (args.help) {
@@ -60,9 +62,55 @@ var config = {
     }
 };
 
-backup(config, function(err) {
-    if (err) {
-        log.error(err);
-        process.exit(1);
+backup(config, function(err, details) {
+    if (err) log.error(err);
+
+    if (args.metric) {
+        var cw = new AWS.CloudWatch({ region: 'us-east-1' });
+        var params = {
+            Namespace: args.metric.split('/')[0],
+            MetricData: []
+        };
+
+        if (err) {
+            params.MetricData.push({
+                MetricName: args.metric.split('/')[1],
+                Dimensions: [
+                    {
+                        Name: 'Type',
+                        Value: 'Error'
+                    }
+                ],
+                Value: 1
+            });
+        }
+
+        if (details) {
+            params.MetricData.push({
+                MetricName: args.metric.split('/')[1],
+                Dimensions: [
+                    {
+                        Name: 'Type',
+                        Value: 'Size'
+                    }
+                ],
+                Value: details.size,
+                Unit: 'Bytes'
+            }, {
+                MetricName: args.metric.split('/')[1],
+                Dimensions: [
+                    {
+                        Name: 'Type',
+                        Value: 'RecordCount'
+                    }
+                ],
+                Value: details.count,
+                Unit: 'Count'
+            });
+        }
+
+        cw.putMetricData(params, function(err) {
+            if (err) log.error(err);
+        });
     }
 });
