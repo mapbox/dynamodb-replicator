@@ -28,6 +28,7 @@ module.exports = function(config, done) {
         writeBackup.emit('error', err);
     }).on('part', function(details) {
         log('[segment %s] Uploaded part #%s for total %s bytes uploaded', index, details.PartNumber, details.uploadedSize);
+        writeBackup.size = details.uploadedSize;
     });
 
     writeBackup.count = 0;
@@ -47,7 +48,7 @@ module.exports = function(config, done) {
     };
 
     writeBackup._flush = function(callback) {
-        writeBackup.upload.on('uploaded', function(uploadInfo) {
+        writeBackup.upload.on('uploaded', function() {
             log('[segment %s] Uploaded dynamo backup to s3://%s/%s', index, config.backup.bucket, key);
             log('[segment %s] Wrote %s items to backup', index, writeBackup.count);
             callback();
@@ -58,7 +59,7 @@ module.exports = function(config, done) {
     log('[segment %s] Starting backup job %s of %s', index, config.backup.jobid, config.region + '/' + config.table);
 
     queue(1)
-        .defer(throughput.adjustCapacity, { read: 1000 })
+        .defer(throughput.setCapacity, { read: 1000 })
         .defer(function(next) {
             primary.scan(scanOpts)
                 .on('error', next)
@@ -71,7 +72,7 @@ module.exports = function(config, done) {
             throughput.resetCapacity(function(resetErr) {
                 if (backupErr) return done(backupErr);
                 if (resetErr) return done(resetErr);
-                done();
+                done(null, writeBackup);
             });
         });
 };
