@@ -6,6 +6,7 @@ var crypto = require('crypto');
 var AWS = require('aws-sdk');
 var s3 = new AWS.S3();
 var queue = require('queue-async');
+var zlib = require('zlib');
 
 test('setup', setup.setup);
 test('backup: one segment', function(assert) {
@@ -27,7 +28,7 @@ test('backup: one segment', function(assert) {
         if (err) return assert.end();
 
         assert.equal(details.count, 3, 'reported 3 records');
-        assert.equal(details.size, 156, 'reported 156 bytes');
+        assert.equal(details.size, 93, 'reported 93 bytes');
 
         s3.getObject({
             Bucket: 'mapbox',
@@ -38,14 +39,17 @@ test('backup: one segment', function(assert) {
 
             assert.ok(data.Body, 'file has content');
 
-            data = data.Body.toString().trim().split('\n');
-            assert.deepEqual(data, [
-                '{"hash":"hash1","range":"range1","other":1}',
-                '{"hash":"hash1","range":"range2","other":2}',
-                '{"hash":"hash1","range":"range4","other":"base64:aGVsbG8gd29ybGQ="}'
-            ], 'expected data backed up to S3');
+            zlib.gunzip(data.Body, function(err, data) {
+                assert.ifError(err, 'gzipped backup');
+                data = data.toString().trim().split('\n');
+                assert.deepEqual(data, [
+                    '{"hash":"hash1","range":"range1","other":1}',
+                    '{"hash":"hash1","range":"range2","other":2}',
+                    '{"hash":"hash1","range":"range4","other":"base64:aGVsbG8gd29ybGQ="}'
+                ], 'expected data backed up to S3');
 
-            assert.end();
+                assert.end();
+            });
         });
     });
 });
@@ -96,14 +100,18 @@ test('backup: parallel', function(assert) {
             if (err) return assert.end();
 
             assert.equal(results[0].count + results[1].count, 1003, 'reported 1003 records');
-            assert.equal(results[0].size + results[1].size, 85156, 'reported 85156 bytes');
 
-            var data = results.slice(2).map(function(s3result) {
-                return s3result.Body.toString().trim().split('\n');
+            var s3results = results.slice(2);
+            zlib.gunzip(s3results[0].Body, function(err, first) {
+                assert.ifError(err, 'gzipped backup');
+                zlib.gunzip(s3results[1].Body, function(err, second) {
+                    assert.ifError(err, 'gzipped backup');
+                    first = first.toString().trim().split('\n');
+                    second = second.toString().trim().split('\n');
+                    assert.equal(first.length + second.length, 1003, 'backed up all records');
+                    assert.end();
+                });
             });
-
-            assert.equal(data[0].length + data[1].length, 1003, 'backed up all records');
-            assert.end();
         });
 });
 test('teardown', setup.teardown);
