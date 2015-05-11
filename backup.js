@@ -1,13 +1,11 @@
 var AWS = require('aws-sdk');
 var s3Stream = require('s3-upload-stream')(new AWS.S3());
-var queue = require('queue-async');
 var Dyno = require('dyno');
 var stream = require('stream');
 var zlib = require('zlib');
 
 module.exports = function(config, done) {
     var primary = Dyno(config);
-    var throughput = require('dynamodb-throughput')(config.table, config);
 
     var log = config.log || console.log;
     var scanOpts = config.hasOwnProperty('segment') && config.segments ?
@@ -44,31 +42,25 @@ module.exports = function(config, done) {
 
     log('[segment %s] Starting backup job %s of %s', index, config.backup.jobid, config.region + '/' + config.table);
 
-    queue(1)
-        .defer(throughput.setCapacity, { read: 1000 })
-        .defer(function(next) {
-            primary.scan(scanOpts)
-                .on('error', next)
-              .pipe(stringify)
-                .on('error', next)
-              .pipe(zlib.createGzip())
-              .pipe(upload)
-                .on('error', next)
-                .on('part', function(details) {
-                    log('[segment %s] Uploaded part #%s for total %s bytes uploaded', index, details.PartNumber, details.uploadedSize);
-                    size = details.uploadedSize;
-                })
-                .on('uploaded', function() {
-                    log('[segment %s] Uploaded dynamo backup to s3://%s/%s', index, config.backup.bucket, key);
-                    log('[segment %s] Wrote %s items to backup', index, count);
-                    next();
-                });
+    primary.scan(scanOpts)
+        .on('error', next)
+      .pipe(stringify)
+        .on('error', next)
+      .pipe(zlib.createGzip())
+      .pipe(upload)
+        .on('error', next)
+        .on('part', function(details) {
+            log('[segment %s] Uploaded part #%s for total %s bytes uploaded', index, details.PartNumber, details.uploadedSize);
+            size = details.uploadedSize;
         })
-        .awaitAll(function(backupErr) {
-            throughput.resetCapacity(function(resetErr) {
-                if (backupErr) return done(backupErr);
-                if (resetErr) return done(resetErr);
-                done(null, { size: size, count: count });
-            });
+        .on('uploaded', function() {
+            log('[segment %s] Uploaded dynamo backup to s3://%s/%s', index, config.backup.bucket, key);
+            log('[segment %s] Wrote %s items to backup', index, count);
+            next();
         });
+
+    function next(err) {
+        if (err) return done(err);
+        done(null, { size: size, count: count });
+    }
 };
