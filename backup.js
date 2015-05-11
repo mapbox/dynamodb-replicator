@@ -30,9 +30,11 @@ module.exports = function(config, done) {
             return value;
         });
 
-        stringify.push(line + '\n');
-        count++;
-        callback();
+        setImmediate(function() {
+            stringify.push(line + '\n');
+            count++;
+            callback();
+        });
     };
 
     var upload = s3Stream.upload({
