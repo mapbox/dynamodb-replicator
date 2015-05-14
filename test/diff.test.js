@@ -31,7 +31,8 @@ test('diff: without repairs', function(assert) {
             'Scanning replica table and comparing to primary',
             '[different] {"hash":"hash1","range":"range2"}',
             '[extraneous] {"hash":"hash1","range":"range3"}',
-            '[discrepancies] 2'
+            '[discrepancies] 2',
+            '[progress] Scan rate: 6 items/s, 2 scans/s | Compare rate: 6 items/s'
         ]);
 
         config.log.messages = [];
@@ -49,7 +50,8 @@ test('diff: without repairs', function(assert) {
                 'Scanning replica table and comparing to primary',
                 '[different] {"hash":"hash1","range":"range2"}',
                 '[extraneous] {"hash":"hash1","range":"range3"}',
-                '[discrepancies] 2'
+                '[discrepancies] 2',
+                '[progress] Scan rate: 6 items/s, 2 scans/s | Compare rate: 6 items/s'
             ]);
 
             assert.end();
@@ -75,7 +77,8 @@ test('diff: with repairs', function(assert) {
             '[discrepancies] 2',
             'Scanning replica table and comparing to primary',
             '[extraneous] {"hash":"hash1","range":"range3"}',
-            '[discrepancies] 1'
+            '[discrepancies] 1',
+            '[progress] Scan rate: 7 items/s, 2 scans/s | Compare rate: 7 items/s'
         ]);
 
         config.repair = false;
@@ -90,7 +93,8 @@ test('diff: with repairs', function(assert) {
                 'Scanning primary table and comparing to replica',
                 '[discrepancies] 0',
                 'Scanning replica table and comparing to primary',
-                '[discrepancies] 0'
+                '[discrepancies] 0',
+                '[progress] Scan rate: 6 items/s, 2 scans/s | Compare rate: 6 items/s'
             ]);
 
             assert.end();
@@ -114,7 +118,8 @@ test('diff: backfill', function(assert) {
             'Scanning primary table and comparing to replica',
             '[missing] {"hash":"hash1","range":"range1"}',
             '[different] {"hash":"hash1","range":"range2"}',
-            '[discrepancies] 2'
+            '[discrepancies] 2',
+            '[progress] Scan rate: 3 items/s, 1 scans/s | Compare rate: 3 items/s'
         ]);
 
         config.repair = false;
@@ -126,7 +131,8 @@ test('diff: backfill', function(assert) {
             assert.equal(discrepancies, 0, 'no discrepacies on second comparison');
             assert.deepEqual(config.log.messages, [
                 'Scanning primary table and comparing to replica',
-                '[discrepancies] 0'
+                '[discrepancies] 0',
+                '[progress] Scan rate: 3 items/s, 1 scans/s | Compare rate: 3 items/s'
             ]);
 
             assert.end();
