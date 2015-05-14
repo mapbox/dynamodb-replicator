@@ -24,7 +24,7 @@ module.exports = function(config, done) {
         scanRequests++;
         itemsScanned += response.Count;
         if (response.LastEvaluatedKey)
-            log('[progress] LastEvaluatedKey: %s', response.LastEvaluatedKey);
+            log('[progress] LastEvaluatedKey: %j', response.LastEvaluatedKey);
     }
 
     function report() {
