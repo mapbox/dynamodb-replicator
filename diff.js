@@ -32,7 +32,7 @@ module.exports = function(config, done) {
         var scanRate = Math.min(itemsScanned, (itemsScanned / elapsed).toFixed(2));
         var reqRate = Math.min(scanRequests, (scanRequests / elapsed).toFixed(2));
         var compareRate = Math.min(itemsCompared, (itemsCompared / elapsed).toFixed(2));
-        log('[progress] Scan rate: %s items/s, %s scans/s | Compare rate: %s items/s', scanRate, reqRate, compareRate);
+        log('[progress] Scan rate: %s items @ %s items/s, %s scans/s | Compare rate: %s items/s', itemsScanned, scanRate, reqRate, compareRate);
     }
 
     var reporter = setInterval(report, 60000).unref();
