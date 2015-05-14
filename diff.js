@@ -15,6 +15,27 @@ module.exports = function(config, done) {
         { segment: config.segment, segments: config.segments } : undefined;
 
     var discrepancies = 0;
+    var scanRequests = 0;
+    var itemsScanned = 0;
+    var itemsCompared = 0;
+    var start = Date.now();
+
+    function progress(params, response) {
+        scanRequests++;
+        itemsScanned += response.Count;
+        if (response.LastEvaluatedKey)
+            log('[progress] LastEvaluatedKey: %s', response.LastEvaluatedKey);
+    }
+
+    function report() {
+        var elapsed = (Date.now() - start) / 1000;
+        var scanRate = Math.min(itemsScanned, (itemsScanned / elapsed).toFixed(2));
+        var reqRate = Math.min(scanRequests, (scanRequests / elapsed).toFixed(2));
+        var compareRate = Math.min(itemsCompared, (itemsCompared / elapsed).toFixed(2));
+        log('[progress] Scan rate: %s items/s, %s scans/s | Compare rate: %s items/s', scanRate, reqRate, compareRate);
+    }
+
+    var reporter = setInterval(report, 60000).unref();
 
     function Compare(read, keySchema, deleteMissing) {
         var writable = new stream.Writable({ objectMode: true });
@@ -29,6 +50,7 @@ module.exports = function(config, done) {
             }, {});
 
             read.getItem(key, function(err, item) {
+                itemsCompared++;
                 if (err) return writable.emit('error', err);
 
                 if (!item) {
@@ -66,14 +88,15 @@ module.exports = function(config, done) {
         log('Scanning primary table and comparing to replica');
 
         primary.scan(scanOpts)
-            .on('error', done)
+            .on('dbrequest', progress)
+            .on('error', finish)
             .pipe(compare)
-            .on('error', done)
+            .on('error', finish)
             .on('finish', function() {
                 discrepancies += compare.discrepancies;
                 log('[discrepancies] %s', compare.discrepancies);
                 if (!config.backfill) return scanReplica(keySchema);
-                done(null, discrepancies);
+                finish();
             });
     }
 
@@ -83,13 +106,20 @@ module.exports = function(config, done) {
         log('Scanning replica table and comparing to primary');
 
         replica.scan(scanOpts)
-            .on('error', done)
+            .on('dbrequest', progress)
+            .on('error', finish)
             .pipe(compare)
-            .on('error', done)
+            .on('error', finish)
             .on('finish', function() {
                 discrepancies += compare.discrepancies;
                 log('[discrepancies] %s', compare.discrepancies);
-                done(null, discrepancies);
+                finish();
             });
+    }
+
+    function finish(err) {
+        clearInterval(reporter);
+        report();
+        done(err, discrepancies);
     }
 };
