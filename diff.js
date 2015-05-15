@@ -49,6 +49,13 @@ module.exports = function(config, done) {
                 return key;
             }, {});
 
+            if (config.backfill) {
+                log('[backfill] %j', key);
+                writable.discrepancies++;
+                itemsCompared++;
+                return replica.putItem(record, callback);
+            }
+
             read.getItem(key, function(err, item) {
                 itemsCompared++;
                 if (err) return writable.emit('error', err);

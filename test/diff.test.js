@@ -113,26 +113,31 @@ test('diff: backfill', function(assert) {
         assert.ifError(err, 'diff tables');
         if (err) return assert.end();
 
-        assert.equal(discrepancies, 2, 'two discrepacies');
+        assert.equal(discrepancies, 3, 'three records backfilled');
         assert.deepEqual(config.log.messages, [
             'Scanning primary table and comparing to replica',
-            '[missing] {"hash":"hash1","range":"range1"}',
-            '[different] {"hash":"hash1","range":"range2"}',
-            '[discrepancies] 2',
+            '[backfill] {"hash":"hash1","range":"range1"}',
+            '[backfill] {"hash":"hash1","range":"range2"}',
+            '[backfill] {"hash":"hash1","range":"range4"}',
+            '[discrepancies] 3',
             '[progress] Scan rate: 3 items @ 3 items/s, 1 scans/s | Compare rate: 3 items/s'
         ]);
 
         config.repair = false;
+        config.backfill = false;
         config.log.messages = [];
         diff(config, function(err, discrepancies) {
             assert.ifError(err, 'diff tables');
             if (err) return assert.end();
 
-            assert.equal(discrepancies, 0, 'no discrepacies on second comparison');
+            assert.equal(discrepancies, 1, 'only an extraneous discrepacy on second comparison');
             assert.deepEqual(config.log.messages, [
                 'Scanning primary table and comparing to replica',
                 '[discrepancies] 0',
-                '[progress] Scan rate: 3 items @ 3 items/s, 1 scans/s | Compare rate: 3 items/s'
+                'Scanning replica table and comparing to primary',
+                '[extraneous] {"hash":"hash1","range":"range3"}',
+                '[discrepancies] 1',
+                '[progress] Scan rate: 7 items @ 7 items/s, 2 scans/s | Compare rate: 7 items/s'
             ]);
 
             assert.end();
