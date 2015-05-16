@@ -87,7 +87,7 @@ module.exports = function(config, done) {
     }
 
     function Write() {
-        var writer = new stream.Writable({ objectMode: true });
+        var writer = new stream.Writable({ objectMode: true, highWaterMark: 40 });
         writer.puts = [];
         writer.deletes = [];
 
