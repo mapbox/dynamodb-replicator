@@ -38,12 +38,12 @@ module.exports = function(config, done) {
     var reporter = setInterval(report, 60000).unref();
 
     function Compare(read, keySchema, deleteMissing) {
-        var writable = new stream.Writable({ objectMode: true });
+        var comparison = new stream.Transform({ objectMode: true });
         var noItem = deleteMissing ? 'extraneous' : 'missing';
 
-        writable.discrepancies = 0;
+        comparison.discrepancies = 0;
 
-        writable._write = function(record, enc, callback) {
+        comparison._transform = function(record, enc, callback) {
             var key = keySchema.reduce(function(key, attribute) {
                 key[attribute] = record[attribute];
                 return key;
@@ -51,36 +51,87 @@ module.exports = function(config, done) {
 
             if (config.backfill) {
                 log('[backfill] %j', key);
-                writable.discrepancies++;
+                comparison.discrepancies++;
                 itemsCompared++;
-                return replica.putItem(record, callback);
+                comparison.push({ put: record });
+                return callback();
             }
 
             read.getItem(key, function(err, item) {
                 itemsCompared++;
-                if (err) return writable.emit('error', err);
+                if (err) return comparison.emit('error', err);
 
                 if (!item) {
-                    writable.discrepancies++;
+                    comparison.discrepancies++;
                     log('[%s] %j', noItem, key);
                     if (!config.repair) return callback();
-                    if (deleteMissing) return replica.deleteItem(key, callback);
-                    return replica.putItem(record, callback);
+                    if (deleteMissing) comparison.push({ remove: key });
+                    else comparison.push({ put: record });
+                    return callback();
                 }
 
                 try { assert.deepEqual(record, item); }
                 catch (notEqual) {
-                    writable.discrepancies++;
+                    comparison.discrepancies++;
                     log('[different] %j', key);
                     if (!config.repair) return callback();
-                    return replica.putItem(record, callback);
+                    comparison.push({ put: record });
+                    return callback();
                 }
 
                 callback();
             });
         };
 
-        return writable;
+        return comparison;
+    }
+
+    function Write() {
+        var writer = new stream.Writable({ objectMode: true });
+        writer.puts = [];
+        writer.deletes = [];
+
+        writer._write = function(item, enc, callback) {
+            if (!item.put && !item.remove)
+                return callback(new Error('Invalid item sent to writer: %j', item));
+
+            var buffer = item.put ? writer.puts : writer.deletes;
+            if (buffer.length < 25) {
+                buffer.push(item.put || item.remove);
+                return callback();
+            }
+
+            if (item.put) {
+                return replica.putItems(writer.puts, function(err) {
+                    if (err) return callback(err);
+                    writer.puts = [item.put];
+                    callback();
+                });
+            }
+
+            if (item.remove) {
+                return replica.deleteItems(writer.deletes, function(err) {
+                    if (err) return callback(err);
+                    writer.deletes = [item.remove];
+                    callback();
+                });
+            }
+        };
+
+        var streamEnd = writer.end.bind(writer);
+        writer.end = function() {
+            var q = queue();
+
+            if (writer.puts.length) q.defer(replica.putItems, writer.puts);
+            if (writer.deletes.length) q.defer(replica.deleteItems, writer.deletes);
+
+            q.awaitAll(function(err) {
+                if (err) return writer.emit('error', err);
+                streamEnd();
+            });
+        };
+
+        return writer;
     }
 
     primary.describeTable(function(err, description) {
@@ -91,13 +142,16 @@ module.exports = function(config, done) {
 
     function scanPrimary(keySchema) {
         var compare = Compare(replica, keySchema, false);
+        var write = Write();
 
         log('Scanning primary table and comparing to replica');
 
         primary.scan(scanOpts)
             .on('dbrequest', progress)
             .on('error', finish)
-            .pipe(compare)
+          .pipe(compare)
+            .on('error', finish)
+          .pipe(write)
             .on('error', finish)
             .on('finish', function() {
                 discrepancies += compare.discrepancies;
@@ -109,13 +163,16 @@ module.exports = function(config, done) {
 
     function scanReplica(keySchema) {
         var compare = Compare(primary, keySchema, true);
+        var write = Write();
 
         log('Scanning replica table and comparing to primary');
 
         replica.scan(scanOpts)
             .on('dbrequest', progress)
             .on('error', finish)
-            .pipe(compare)
+          .pipe(compare)
+            .on('error', finish)
+          .pipe(write)
             .on('error', finish)
             .on('finish', function() {
                 discrepancies += compare.discrepancies;
