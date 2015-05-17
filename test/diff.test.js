@@ -29,8 +29,8 @@ test('diff: without repairs', function(assert) {
             '[different] {"hash":"hash1","range":"range2"}',
             '[discrepancies] 2',
             'Scanning replica table and comparing to primary',
-            '[different] {"hash":"hash1","range":"range2"}',
             '[extraneous] {"hash":"hash1","range":"range3"}',
+            '[different] {"hash":"hash1","range":"range2"}',
             '[discrepancies] 2',
             '[progress] Scan rate: 6 items @ 6 items/s, 2 scans/s | Compare rate: 6 items/s'
         ]);
@@ -48,8 +48,8 @@ test('diff: without repairs', function(assert) {
                 '[different] {"hash":"hash1","range":"range2"}',
                 '[discrepancies] 2',
                 'Scanning replica table and comparing to primary',
-                '[different] {"hash":"hash1","range":"range2"}',
                 '[extraneous] {"hash":"hash1","range":"range3"}',
+                '[different] {"hash":"hash1","range":"range2"}',
                 '[discrepancies] 2',
                 '[progress] Scan rate: 6 items @ 6 items/s, 2 scans/s | Compare rate: 6 items/s'
             ]);

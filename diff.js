@@ -37,47 +37,102 @@ module.exports = function(config, done) {
 
     var reporter = setInterval(report, 60000).unref();
 
-    function Compare(read, keySchema, deleteMissing) {
-        var comparison = new stream.Transform({ objectMode: true });
-        var noItem = deleteMissing ? 'extraneous' : 'missing';
+    function Aggregate() {
+        var aggregation = new stream.Transform({ objectMode: true });
+        aggregation.records = [];
 
-        comparison.discrepancies = 0;
-
-        comparison._transform = function(record, enc, callback) {
-            var key = keySchema.reduce(function(key, attribute) {
-                key[attribute] = record[attribute];
-                return key;
-            }, {});
-
-            if (config.backfill) {
-                log('[backfill] %j', key);
-                comparison.discrepancies++;
-                itemsCompared++;
-                comparison.push({ put: record });
+        aggregation._transform = function(record, enc, callback) {
+            if (aggregation.records.length < 25) {
+                aggregation.records.push(record);
                 return callback();
             }
 
-            read.getItem(key, function(err, item) {
-                itemsCompared++;
-                if (err) return comparison.emit('error', err);
+            aggregation.push(aggregation.records);
+            aggregation.records = [];
+            callback();
+        };
 
-                if (!item) {
-                    comparison.discrepancies++;
-                    log('[%s] %j', noItem, key);
-                    if (!config.repair) return callback();
-                    if (deleteMissing) comparison.push({ remove: key });
-                    else comparison.push({ put: record });
-                    return callback();
-                }
+        aggregation._flush = function(callback) {
+            if (aggregation.records.length) aggregation.push(aggregation.records);
+            callback();
+        };
 
-                try { assert.deepEqual(record, item); }
-                catch (notEqual) {
+        return aggregation;
+    }
+
+    function Compare(read, keySchema, deleteMissing) {
+        var noItem = deleteMissing ? 'extraneous' : 'missing';
+        var comparison = new stream.Transform({ objectMode: true });
+        comparison.discrepancies = 0;
+
+        comparison._transform = function(records, enc, callback) {
+            var recordKeys = records.reduce(function(recordKeys, record) {
+                recordKeys.push(keySchema.reduce(function(key, attribute) {
+                    key[attribute] = record[attribute];
+                    return key;
+                }, {}));
+                return recordKeys;
+            }, []);
+
+            var indexedRecords = records.reduce(function(indexedRecords, record, i) {
+                indexedRecords[JSON.stringify(recordKeys[i])] = record;
+                return indexedRecords;
+            }, {});
+
+            if (config.backfill) {
+                Object.keys(indexedRecords).forEach(function(key) {
+                    var record = indexedRecords[key];
+                    log('[backfill] %s', key);
                     comparison.discrepancies++;
-                    log('[different] %j', key);
-                    if (!config.repair) return callback();
+                    itemsCompared++;
                     comparison.push({ put: record });
-                    return callback();
-                }
+                });
+
+                return callback();
+            }
+
+            read.getItems(recordKeys, function(err, items) {
+                if (err) return callback(err);
+
+                var itemKeys = items.reduce(function(itemKeys, item) {
+                    itemKeys.push(keySchema.reduce(function(key, attribute) {
+                        key[attribute] = item[attribute];
+                        return key;
+                    }, {}));
+                    return itemKeys;
+                }, []);
+
+                var indexedItems = items.reduce(function(indexedItems, item, i) {
+                    indexedItems[JSON.stringify(itemKeys[i])] = item;
+                    return indexedItems;
+                }, {});
+
+                recordKeys.forEach(function(key) {
+                    var item = indexedItems[JSON.stringify(key)];
+
+                    if (!item) {
+                        itemsCompared++;
+                        comparison.discrepancies++;
+                        var record = indexedRecords[JSON.stringify(key)];
+                        log('[%s] %j', noItem, key);
+                        if (!config.repair) return;
+                        if (deleteMissing) comparison.push({ remove: key });
+                        else comparison.push({ put: record });
+                    }
+                });
+
+                _(indexedItems).each(function(item, key) {
+                    itemsCompared++;
+                    var record = indexedRecords[key];
+
+                    try { assert.deepEqual(record, item); }
+                    catch (notEqual) {
+                        comparison.discrepancies++;
+                        log('[different] %s', key);
+                        if (!config.repair) return;
+                        comparison.push({ put: record });
+                    }
+                });
 
                 callback();
             });
@@ -141,6 +196,7 @@ module.exports = function(config, done) {
     });
 
     function scanPrimary(keySchema) {
+        var aggregate = Aggregate();
         var compare = Compare(replica, keySchema, false);
         var write = Write();
 
@@ -148,6 +204,8 @@ module.exports = function(config, done) {
 
         primary.scan(scanOpts)
             .on('dbrequest', progress)
+            .on('error', finish)
+          .pipe(aggregate)
             .on('error', finish)
           .pipe(compare)
             .on('error', finish)
@@ -162,6 +220,7 @@ module.exports = function(config, done) {
     }
 
     function scanReplica(keySchema) {
+        var aggregate = Aggregate();
         var compare = Compare(primary, keySchema, true);
         var write = Write();
 
@@ -169,6 +228,8 @@ module.exports = function(config, done) {
 
         replica.scan(scanOpts)
             .on('dbrequest', progress)
+            .on('error', finish)
+          .pipe(aggregate)
             .on('error', finish)
           .pipe(compare)
             .on('error', finish)
