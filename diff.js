@@ -60,7 +60,7 @@ module.exports = function(config, done) {
         return aggregation;
     }
 
-    function Compare(read, keySchema, deleteMissing) {
+    function Compare(readFrom, compareTo, keySchema, deleteMissing) {
         var noItem = deleteMissing ? 'extraneous' : 'missing';
         var comparison = new stream.Transform({ objectMode: true });
         comparison.discrepancies = 0;
@@ -91,7 +91,7 @@ module.exports = function(config, done) {
                 return callback();
             }
 
-            read.getItems(recordKeys, function(err, items) {
+            readFrom.getItems(recordKeys, function(err, items) {
                 if (err) return callback(err);
 
                 var itemKeys = items.reduce(function(itemKeys, item) {
@@ -107,34 +107,60 @@ module.exports = function(config, done) {
                     return indexedItems;
                 }, {});
 
+                var q = queue();
+
+                // Find missing records -- scan gave us a key but the batch read did not find a match
                 recordKeys.forEach(function(key) {
                     var item = indexedItems[JSON.stringify(key)];
 
                     if (!item) {
-                        itemsCompared++;
-                        comparison.discrepancies++;
-                        var record = indexedRecords[JSON.stringify(key)];
-                        log('[%s] %j', noItem, key);
-                        if (!config.repair) return;
-                        if (deleteMissing) comparison.push({ remove: key });
-                        else comparison.push({ put: record });
+                        q.defer(function(next) {
+                            compareTo.getItem(key, { consistentRead: true }, function(err, record) {
+                                itemsCompared++;
+                                if (err) return next(err);
+
+                                if (record) {
+                                    comparison.discrepancies++;
+                                    log('[%s] %j', noItem, key);
+                                    if (!config.repair) return next();
+
+                                    if (deleteMissing) comparison.push({ remove: key });
+                                    else comparison.push({ put: record });
+                                }
+
+                                next();
+                            });
+                        });
                     }
                 });
 
+                // Find differing records -- iterate through each item that we did find in the batch read
                 _(indexedItems).each(function(item, key) {
                     itemsCompared++;
                     var record = indexedRecords[key];
 
                     try { assert.deepEqual(record, item); }
                     catch (notEqual) {
-                        comparison.discrepancies++;
-                        log('[different] %s', key);
-                        if (!config.repair) return;
-                        comparison.push({ put: record });
+                        q.defer(function(next) {
+                            compareTo.getItem(JSON.parse(key), { consistentRead: true }, function(err, record) {
+                                if (err) return next(err);
+
+                                try { assert.deepEqual(record, item); }
+                                catch (notEqual) {
+                                    comparison.discrepancies++;
+                                    log('[different] %s', key);
+                                    if (!config.repair) return next();
+
+                                    comparison.push({ put: record });
+                                }
+
+                                next();
+                            });
+                        });
                     }
                 });
 
-                callback();
+                q.awaitAll(function(err) { callback(err); });
             });
         };
 
@@ -148,7 +174,7 @@ module.exports = function(config, done) {
 
         writer._write = function(item, enc, callback) {
             if (!item.put && !item.remove)
-                return callback(new Error('Invalid item sent to writer: %j', item));
+                return callback(new Error('Invalid item sent to writer: ' + JSON.stringify(item)));
 
             var buffer = item.put ? writer.puts : writer.deletes;
             if (buffer.length < 25) {
@@ -197,7 +223,7 @@ module.exports = function(config, done) {
 
     function scanPrimary(keySchema) {
         var aggregate = Aggregate();
-        var compare = Compare(replica, keySchema, false);
+        var compare = Compare(replica, primary, keySchema, false);
         var write = Write();
 
         log('Scanning primary table and comparing to replica');
@@ -221,7 +247,7 @@ module.exports = function(config, done) {
 
     function scanReplica(keySchema) {
         var aggregate = Aggregate();
-        var compare = Compare(primary, keySchema, true);
+        var compare = Compare(primary, replica, keySchema, true);
         var write = Write();
 
         log('Scanning replica table and comparing to primary');
