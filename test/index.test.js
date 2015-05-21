@@ -1,92 +1,87 @@
-var test = require('tape'),
-    fs = require('fs'),
-    queue = require('queue-async');
-var s = require('./setup')();
-var config = s.config;
-var dynos = s.dynos;
+var test = require('tape');
+var tableDef = require('./fixtures/table');
+var records = require('./fixtures/records');
+var primaryRecords = records(10);
+var DynamoDB = require('dynamodb-test');
+var primary = DynamoDB(test, 'mapbox-replicator', tableDef);
+var replica = DynamoDB(test, 'mapbox-replicator', tableDef);
+var stream = require('kinesis-test')(test, 'mapbox-replicator', 1);
+var Dyno = require('dyno');
+var queue = require('queue-async');
 
+var replicate = require('..');
 
-var consumer = require('../')(config);
+primary.start();
+replica.start();
+stream.start();
 
-var data = [
-    {
-        "awsRegion": "us-east-1",
-        "dynamodb": {
-            "Keys": {
-                "hash": {"S": "hash1" },
-                "range": {"S": "range1" }
-            },
-            "SequenceNumber": "300000000000000499659",
-            "SizeBytes": 41,
-            "StreamViewType": "KEYS_ONLY"
-        },
-        "eventID": "e2fd9c34eff2d779b297b26f5fef4206",
-        "eventName": "INSERT",
-        "eventSource": "aws:dynamodb",
-        "eventVersion": "1.0"
-    },
-    {
-            "awsRegion": "us-east-1",
-            "dynamodb": {
-                "Keys": {
-                    "hash": {"S": "hash1"},
-                    "range": {"S": "range2"}
-                },
-                "SequenceNumber": "300000000000000499659",
-                "SizeBytes": 41,
-                "StreamViewType": "KEYS_ONLY"
-            },
-            "eventID": "e2fd9c34eff2d779b297b26f5fef4206",
-            "eventName": "INSERT",
-            "eventSource": "aws:dynamodb",
-            "eventVersion": "1.0"
-    },
-    {
-            "awsRegion": "us-east-1",
-            "dynamodb": {
-                "Keys": {
-                    "hash": {"S": "hash1"},
-                    "range": {"S": "range3"}
-                },
-                "SequenceNumber": "300000000000000499674",
-                "SizeBytes": 41,
-                "StreamViewType": "KEYS_ONLY"
-            },
-            "eventID": "e2fd9c34eff2d779b297b26f5fef4207",
-            "eventName": "DELETE",
-            "eventSource": "aws:dynamodb",
-            "eventVersion": "1.0"
+test('[lambda function] load data', function(assert) {
+    var dyno = Dyno({
+        table: primary.tableName,
+        region: 'mock',
+        accessKeyId: 'mock',
+        secretAccessKey: 'mock',
+        endpoint: 'http://localhost:4567',
+        kinesisConfig: {
+            stream: stream.streamName,
+            region: 'mock',
+            key: ['id'],
+            accessKeyId: 'mock',
+            secretAccessKey: 'mock',
+            endpoint: 'http://localhost:7654'
+        }
+    });
+
+    dyno.putItems(primaryRecords, function(err) {
+        if (err) throw err;
+        assert.end();
+    });
+});
+
+test('[lambda function] run', function(assert) {
+    process.env.PrimaryTable = primary.tableName;
+    process.env.PrimaryRegion = 'mock';
+    process.env.PrimaryEndpoint = 'http://localhost:4567';
+    process.env.ReplicaTable = replica.tableName;
+    process.env.ReplicaRegion = 'mock';
+    process.env.ReplicaEndpoint = 'http://localhost:4567';
+
+    var readable = stream.shards[0];
+    var records = [];
+    readable
+        .on('data', function(kinesisRecords) {
+            kinesisRecords.forEach(function(record) {
+                if (record) records.push({
+                    data: record.Data.toString()
+                });
+            });
+
+            if (records.length === primaryRecords.length) readable.close();
+        })
+        .on('end', function() {
+            replicate(records, checkResults);
+        });
+
+    function checkResults(err) {
+        assert.ifError(err, 'replicated');
+
+        var q = queue();
+        primaryRecords.forEach(function(record) {
+            q.defer(function(next) {
+                replica.dyno.getItem({ id: record.id }, function(err, item) {
+                    if (err) return next(err);
+                    assert.deepEqual(record, item, 'expected record in replica');
+                    next();
+                });
+            });
+        });
+
+        q.await(function(err) {
+            assert.ifError(err, 'found records in replica');
+            assert.end();
+        });
     }
-];
-
-
-var records = data.map(function(d){
-    return {Data: JSON.stringify(d)}
 });
 
-
-
-test('setup', s.setup);
-test('processRecords', function(t) {
-    consumer.processRecords(records, function(err, res){
-        t.notOk(err);
-        t.equal(res, true, 'was successful');
-        t.end();
-    });
-});
-
-test('processRecords - replicated items', function(t) {
-    var q = queue();
-    q.defer(dynos.replica.getItem, {range: 'range1', hash: 'hash1'});
-    q.defer(dynos.replica.getItem, {range: 'range2', hash: 'hash1'});
-    q.defer(dynos.replica.getItem, {range: 'range3', hash: 'hash1'});
-    q.awaitAll(function(err, items) {
-        t.notOk(err);
-        t.deepEquals(items[0], {range: 'range1', hash: 'hash1', other:1}, 'replica has the same item');
-        t.deepEquals(items[1], {range: 'range2', hash: 'hash1', other:2}, 'replica updated item');
-        t.equals(items[2], undefined, 'replica deleted an item');
-        t.end();
-    });
-});
-
-test('teardown', s.teardown);
+stream.close();
+primary.close();

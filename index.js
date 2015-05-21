@@ -1,64 +1,47 @@
-var fs = require('fs');
+var Dyno = require('dyno');
 var queue = require('queue-async');
-var logger = require('fastlog')('replicator');
+var streambot = require('streambot');
 
-/*
+module.exports = replicate;
+module.exports.streambot = streambot(replicate);
 
- Returns an object that can be used to extend kcl.AbstractConsumer
-
- Config needs to include the dyno config for a primary and replica
-
- {
-    primary: {
-      region: 'us-east-1',
-      table: 'test-primary'
-    },
-    replica: {
-      region: 'eu-west-1',
-      table: 'test-replica'
-    }
- }
-
- Dynamo items will be read from the primary, and written to the replica.
-
-*/
-
-
-module.exports = function(config){
-
-    config.logging = config.logging || true;
-
-    var dynoPrimary = require('dyno')(config.primary)
-    var dynoReplica = require('dyno')(config.replica);
-
-    return {
-        processRecords: function (records, done) {
-
-            var q = queue();
-            records.forEach(function (record) {
-
-                var data = JSON.parse(record.Data.toString('utf8'));
-                if(config.logging) logger.info('processing', JSON.stringify(data.dynamodb.Keys));
-
-                q.defer(function(cb) {
-                    dynoPrimary.getItem(data.dynamodb.Keys, {consistentRead: true}, function(err, item, meta) {
-                        if(err) return cb(err);
-
-                        if(item === undefined) {
-                            dynoReplica.deleteItem(data.dynamodb.Keys, { table: data.table }, cb);
-                        } else {
-                            dynoReplica.putItem(item, cb);
-                        }
-                    });
-                });
-            });
-            q.awaitAll(function(err, resp) {
-                if(err) {
-                    if(config.logging) logger.error('getItem err:', err);
-                    return done(err);
-                }
-                done(null, true);
-            });
-        }
+function replicate(records, callback) {
+    var primaryConfig = {
+        region: process.env.PrimaryRegion,
+        table: process.env.PrimaryTable
     };
+
+    if (process.env.PrimaryEndpoint) primaryConfig.endpoint = process.env.PrimaryEndpoint;
+    var primary = Dyno(primaryConfig);
+
+    var replicaConfig = {
+        region: process.env.ReplicaRegion,
+        table: process.env.ReplicaTable
+    };
+
+    if (process.env.ReplicaEndpoint) replicaConfig.endpoint = process.env.ReplicaEndpoint;
+    var replica = Dyno(replicaConfig);
+
+    var q = queue();
+
+    records.forEach(function(record) {
+        q.defer(function(next) {
+            var data;
+            try { data = JSON.parse(record.data); }
+            catch (err) { return next(err); }
+
+            var key = data.dynamodb.Keys;
+
+            streambot.log.info('Processing %j', key);
+
+            primary.getItem(key, {consistentRead: true}, function(err, item) {
+                if (err) return next(err);
+
+                if (!item) replica.deleteItem(data.dynamodb.Keys, next);
+                else replica.putItem(item, next);
+            });
+        });
+    });
+
+    q.awaitAll(callback);
 }
