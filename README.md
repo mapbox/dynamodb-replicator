@@ -2,46 +2,17 @@
 
 [dynamodb-replicator](https://github.com/mapbox/dynamodb-replicator) offers three different mechanisms to provide redundancy and recoverability on DynamoDB tables using a primary-replica model:
 
-- A **replicator** function that processes records from a Kinesis stream of DynamoDB changes made to the primary table and writes them to a replica DynamoDB table. dynamodb-replicator is compatible with the upcoming DynamoDB streams ([in preview](http://dynamodb-preview.s3-website-us-west-2.amazonaws.com/docs/streams-dg/About.html)) as well as [dyno](https://github.com/mapbox/dyno) with Kinesis ([available already](https://github.com/mapbox/dyno#multi--kinesisconfig)). The function is designed to be used along with the [Node Kinesis Client Library](https://github.com/evansolomon/nodejs-kinesis-client-library) in your own project.
-- A **diff-tables** script to that scans the primary table, and checks that each individual record in the replica table is up-to-date
-- A **backup-table** script that scans a single table, and writes the data to files on S3
+- A **replicator** function that processes events in a Kinesis stream of DynamoDB changes made to the primary table and writes them to a replica DynamoDB table. dynamodb-replicator is compatible with the upcoming DynamoDB streams ([in preview](http://dynamodb-preview.s3-website-us-west-2.amazonaws.com/docs/streams-dg/About.html)) as well as [dyno](https://github.com/mapbox/dyno) with Kinesis ([available already](https://github.com/mapbox/dyno#multi--kinesisconfig)). The function is designed to be run as an [AWS Lambda function](http://aws.amazon.com/documentation/lambda/), optionally with deployment assistance from [streambot](https://github.com/mapbox/sreambot).
+- A **diff-tables** script to that scans the primary table, and checks that each individual record in the replica table is up-to-date. The goal is to double-check that the replicator is performing as is should, and the two tables are completely consistent.
+- A **backup-table** script that scans a single table, and writes the data to files on S3.
 
 ### Design
 
-Replication involves many moving parts, of which dynamodb-replicator is only one. Please read [DESIGN.md](https://github.com/mapbox/dynamodb-replicator/blob/master/DESIGN.md) for an in-depth explaination.
+Replication involves many moving parts, of which dynamodb-replicator is only one. Please read [DESIGN.md](https://github.com/mapbox/dynamodb-replicator/blob/master/DESIGN.md) for an in-depth explanation.
 
 ### replicator usage
 
-The replicator function is designed to be used along with the [Node Kinesis Client Library](https://github.com/evansolomon/nodejs-kinesis-client-library) in your own project:
-
-With a `consumer.js`:
-
-```
-var kcl = require('kinesis-client-library');
-var replicator = require('dynamodb-replicator');
-
-var config = {
-    primary: {
-        region: process.env.PrimaryRegion,
-        table: process.env.PrimaryTable
-    },
-    replica: {
-        region: process.env.ReplicaRegion,
-        table: process.env.ReplicaTable
-    }
-};
-
-kcl.AbstractConsumer.extend(replicator(config));
-```
-
-Then start from the node kinesis client library [cli](https://github.com/evansolomon/nodejs-kinesis-client-library#cli)
-
-```
-launch-kinesis-cluster \
-  --consumer ./consumer.js \
-  --table kinesis-cluster-replica \
-  --stream kinesis-stream-name
-```
+The replicator function is designed to be run as an [AWS Lambda function](http://aws.amazon.com/documentation/lambda/) reading from an [AWS Kinesis stream](http://aws.amazon.com/documentation/kinesis/). The replicator function anticipates that individual records in the stream contain the keys for items that have been written, changed or deleted from the primary DynamoDB table. It is built for compatibilty with the upcoming release of [DynamoDB streams](http://dynamodb-preview.s3-website-us-west-2.amazonaws.com/docs/streams-dg/About.html), and presently works with write performed by [dyno with Kinesis configuration](https://github.com/mapbox/dyno#multi--kinesisconfig).
 
 ### diff-tables usage
 
