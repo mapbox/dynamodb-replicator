@@ -8,6 +8,7 @@ var replica = DynamoDB(test, 'mapbox-replicator', tableDef);
 var stream = require('kinesis-test')(test, 'mapbox-replicator', 1);
 var Dyno = require('dyno');
 var queue = require('queue-async');
+var crypto = require('crypto');
 
 var replicate = require('..');
 
@@ -15,24 +16,43 @@ primary.start();
 replica.start();
 stream.start();
 
-test('[lambda function] load data', function(assert) {
-    var dyno = Dyno({
-        table: primary.tableName,
+var dyno = Dyno({
+    table: primary.tableName,
+    region: 'mock',
+    accessKeyId: 'mock',
+    secretAccessKey: 'mock',
+    endpoint: 'http://localhost:4567',
+    kinesisConfig: {
+        stream: stream.streamName,
         region: 'mock',
+        key: ['id'],
         accessKeyId: 'mock',
         secretAccessKey: 'mock',
-        endpoint: 'http://localhost:4567',
-        kinesisConfig: {
-            stream: stream.streamName,
-            region: 'mock',
-            key: ['id'],
-            accessKeyId: 'mock',
-            secretAccessKey: 'mock',
-            endpoint: 'http://localhost:7654'
-        }
-    });
+        endpoint: 'http://localhost:7654'
+    }
+});
 
+test('[lambda function] load data', function(assert) {
     dyno.putItems(primaryRecords, function(err) {
+        if (err) throw err;
+        assert.end();
+    });
+});
+
+test('[lambda function] make an update', function(assert) {
+    primaryRecords[4].data = crypto.randomBytes(256).toString('base64');
+    var update = primaryRecords[4];
+
+    dyno.updateItem({ id: update.id }, { put: { data: update.data } }, function(err) {
+        if (err) throw err;
+        assert.end();
+    });
+});
+
+test('[lambda function] make a delete', function(assert) {
+    var remove = primaryRecords.pop();
+
+    dyno.deleteItem({ id: remove.id }, function(err) {
         if (err) throw err;
         assert.end();
     });
