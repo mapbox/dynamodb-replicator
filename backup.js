@@ -22,11 +22,7 @@ module.exports = function(config, done) {
 
     var stringify = new stream.Transform({ objectMode: true });
     stringify._transform = function(record, enc, callback) {
-        var line = JSON.stringify(record, function(key, value) {
-            var val = this[key];
-            if (Buffer.isBuffer(val)) return 'base64:' + val.toString('base64');
-            return value;
-        });
+        var line = Dyno.serialize(record);
 
         setImmediate(function() {
             stringify.push(line + '\n');
@@ -41,7 +37,6 @@ module.exports = function(config, done) {
     });
 
     log('[segment %s] Starting backup job %s of %s', index, config.backup.jobid, config.region + '/' + config.table);
-
     primary.scan(scanOpts)
         .on('error', next)
       .pipe(stringify)
