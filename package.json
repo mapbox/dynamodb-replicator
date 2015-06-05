@@ -23,7 +23,7 @@
   "homepage": "https://github.com/mapbox/dynamodb-replicator",
   "dependencies": {
     "aws-sdk": "^2.1.24",
-    "dyno": "git://github.com/mapbox/dyno.git#89943e1251616ae3d69c22829d2d96db3e19f5af",
+    "dyno": "https://github.com/mapbox/dyno/tarball/types",
     "event-stream": "^3.2.2",
     "fastlog": "^1.0.0",
     "logger": "0.0.1",
