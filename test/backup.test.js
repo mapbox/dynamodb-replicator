@@ -28,7 +28,7 @@ test('backup: one segment', function(assert) {
         if (err) return assert.end();
 
         assert.equal(details.count, 3, 'reported 3 records');
-        assert.equal(details.size, 110, 'reported 110 bytes');
+        assert.equal(details.size, 98, 'reported 98 bytes');
 
         s3.getObject({
             Bucket: 'mapbox',
@@ -45,7 +45,7 @@ test('backup: one segment', function(assert) {
                 assert.deepEqual(data, [
                     '{"hash":{"S":"hash1"},"range":{"S":"range1"},"other":{"N":"1"}}',
                     '{"hash":{"S":"hash1"},"range":{"S":"range2"},"other":{"N":"2"}}',
-                    '{"hash":{"S":"hash1"},"range":{"S":"range4"},"other":{"B":[104,101,108,108,111,32,119,111,114,108,100]}}'
+                    '{"hash":{"S":"hash1"},"range":{"S":"range4"},"other":{"B":"aGVsbG8gd29ybGQ="}}'
                 ], 'expected data backed up to S3');
 
                 assert.end();
