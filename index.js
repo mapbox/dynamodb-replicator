@@ -30,7 +30,8 @@ function replicate(records, callback) {
             try { data = JSON.parse(record.data); }
             catch (err) { return next(err); }
 
-            var key = data.dynamodb.Keys;
+            // @rclark: this is what I mean. Very hacky.
+            var key = Dyno.deserialize(JSON.stringify(data.dynamodb.Keys));
 
             streambot.log.info('Processing %j', key);
 
