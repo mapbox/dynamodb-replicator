@@ -2,7 +2,6 @@ var _ = require('underscore');
 var queue = require('queue-async');
 var Dyno = require('dyno');
 var stream = require('stream');
-var assert = require('assert');
 
 module.exports = function(config, done) {
     var primary = Dyno(config.primary);
@@ -139,14 +138,17 @@ module.exports = function(config, done) {
                     itemsCompared++;
                     var record = indexedRecords[key];
 
-                    try { assert.deepEqual(record, item); }
-                    catch (notEqual) {
+                    var recordString = Dyno.serialize(record);
+                    var itemString = Dyno.serialize(item);
+
+                    if (recordString !== itemString) {
                         q.defer(function(next) {
                             compareTo.getItem(JSON.parse(key), { consistentRead: true }, function(err, record) {
                                 if (err) return next(err);
 
-                                try { assert.deepEqual(record, item); }
-                                catch (notEqual) {
+                                var recordString = Dyno.serialize(record);
+
+                                if (recordString !== itemString) {
                                     comparison.discrepancies++;
                                     log('[different] %s', key);
                                     if (!config.repair) return next();
