@@ -24,12 +24,12 @@ exports.handler = function replicate(event, context) {
 
         if (record.EventName === 'INSERT' || record.EventName === 'MODIFY') {
             dynamo.putItem({
-                TableName: 'jakepruitt',
+                TableName: 'TABLENAME',
                 Item: record.Dynamodb.NewImage
             }, nextRecord);
         } else if (record.EventName === 'REMOVE') {
             dynamo.deleteItem({
-                TableName: 'jakepruitt',
+                TableName: 'TABLENAME',
                 Key: record.Dynamodb.Keys
             }, nextRecord);
         }
