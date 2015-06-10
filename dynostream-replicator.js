@@ -1,16 +1,26 @@
 var AWS = require('aws-sdk');
 var queue = require('queue-async');
 var _ = require('underscore');
+var streambot = require('streambot');
 
-exports.handler = function replicate(event, context) {
-    var config = {
+module.exports = replicate;
+module.exports.streambot = streambot(replicate);
+
+function replicate(records, callback) {
+    var replicaConfig = {
+        region: process.env.ReplicaRegion,
+        endpoint: process.env.ReplicaEndpoint
+    };
+    /*
+    var replicaConfig = {
         region: 'us-east-1',
         endpoint: 'https://preview-dynamodb.us-east-1.amazonaws.com'
     };
+    */
 
-    var dynamo = new AWS.DynamoDB(config);
+    var replica = new AWS.DynamoDB(replicaConfig);
 
-    var recordsById = actionsPerId(event.Records);
+    var recordsById = actionsPerId(records);
 
     var q = queue();
 
@@ -26,12 +36,12 @@ exports.handler = function replicate(event, context) {
 
                     if (record.EventName === 'INSERT' || record.EventName === 'MODIFY') {
                         dynamo.putItem({
-                            TableName: 'TABLENAME',
+                            TableName: process.env.ReplicaTable,
                             Item: record.Dynamodb.NewImage
                         }, nextRecord);
                     } else if (record.EventName === 'REMOVE') {
                         dynamo.deleteItem({
-                            TableName: 'TABLENAME',
+                            TableName: process.env.ReplicaTable,
                             Key: record.Dynamodb.Keys
                         }, nextRecord);
                     }
@@ -42,14 +52,10 @@ exports.handler = function replicate(event, context) {
         });
     });
 
-    q.awaitAll(function(err, data) {
-        if (err) return context.fail(err);
-
-        context.succeed('Processing successful');
-    });
+    q.awaitAll(callback);
 };
 
-exports.helpers = {
+module.exports.helpers = {
     actionsPerId: actionsPerId
 };
 
