@@ -1,6 +1,6 @@
 var AWS = require('aws-sdk');
 var queue = require('queue-async');
-var _ = require('lodash');
+var _ = require('underscore');
 
 exports.handler = function replicate(event, context) {
     var config = {
@@ -49,7 +49,9 @@ exports.handler = function replicate(event, context) {
     });
 };
 
-_.set(exports, 'helpers.actionsPerId', actionsPerId);
+exports.helpers = {
+    actionsPerId: actionsPerId
+};
 
 function actionsPerId(records) {
     return records.reduce(function(actionsPerId, action) {
