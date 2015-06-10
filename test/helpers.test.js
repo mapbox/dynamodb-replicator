@@ -1,5 +1,5 @@
 var test = require('tape');
-var helpers = require('../dynostream-replicator').helpers;
+var helpers = require('../index').helpers;
 var testEventSingleRecord = require('./fixtures/test-event-single-record.json');
 var _ = require('underscore');
 

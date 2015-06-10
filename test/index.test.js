@@ -9,6 +9,7 @@ var stream = require('kinesis-test')(test, 'mapbox-replicator', 1);
 var Dyno = require('dyno');
 var queue = require('queue-async');
 var crypto = require('crypto');
+var dynostreamEvents = require('./fixtures/dynostream-events')(primaryRecords);
 
 var replicate = require('..');
 
@@ -66,8 +67,8 @@ test('[lambda function] run', function(assert) {
     process.env.ReplicaRegion = 'mock';
     process.env.ReplicaEndpoint = 'http://localhost:4567';
 
+    /*
     var readable = stream.shards[0];
-    var records = [];
     readable
         .on('data', function(kinesisRecords) {
             kinesisRecords.forEach(function(record) {
@@ -81,6 +82,9 @@ test('[lambda function] run', function(assert) {
         .on('end', function() {
             replicate(records, checkResults);
         });
+        */
+
+    replicate(dynostreamEvents, checkResults);
 
     function checkResults(err) {
         assert.ifError(err, 'replicated');

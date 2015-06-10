@@ -1,52 +1,68 @@
 var AWS = require('aws-sdk');
 var queue = require('queue-async');
+var _ = require('underscore');
 var streambot = require('streambot');
 
 module.exports = replicate;
 module.exports.streambot = streambot(replicate);
 
 function replicate(records, callback) {
-    var primaryConfig = { region: process.env.PrimaryRegion };
-    if (process.env.PrimaryEndpoint) primaryConfig.endpoint = process.env.PrimaryEndpoint;
-    var primary = new AWS.DynamoDB(primaryConfig);
+    var replicaConfig = {
+        region: process.env.ReplicaRegion,
+        endpoint: process.env.ReplicaEndpoint
+    };
+    /*
+    var replicaConfig = {
+        region: 'us-east-1',
+        endpoint: 'https://preview-dynamodb.us-east-1.amazonaws.com'
+    };
+    */
 
-    var replicaConfig = { region: process.env.ReplicaRegion };
-    if (process.env.ReplicaEndpoint) replicaConfig.endpoint = process.env.ReplicaEndpoint;
     var replica = new AWS.DynamoDB(replicaConfig);
+
+    var recordsById = actionsPerId(records);
 
     var q = queue();
 
-    records.forEach(function(record) {
-        q.defer(function(next) {
-            var data;
-            try { data = JSON.parse(record.data); }
-            catch (err) { return next(err); }
+    _(recordsById).each(function(records, id) {
+        q.defer(function(nextId) {
+            var serial = queue(1);
 
-            var getParams = {
-                TableName: process.env.PrimaryTable,
-                Key: data.dynamodb.Keys,
-                ConsistentRead: true
-            };
+            records.forEach(function(record) {
+                serial.defer(function(nextRecord) {
+                    streambot.log.info('Processing %j', record.Dynamodb.Keys);
 
-            streambot.log.info('Processing %j', getParams.Key);
-
-            primary.getItem(getParams, function(err, response) {
-                if (err) return next(err);
-
-                if (!response.Item) return replica.deleteItem({
-                    TableName: process.env.ReplicaTable,
-                    Key: data.dynamodb.Keys
-                }, next);
-
-                var putParams = {
-                    TableName: process.env.ReplicaTable,
-                    Item: response.Item
-                };
-
-                replica.putItem(putParams, next);
+                    if (record.EventName === 'INSERT' || record.EventName === 'MODIFY') {
+                        replica.putItem({
+                            TableName: process.env.ReplicaTable,
+                            Item: record.Dynamodb.NewImage
+                        }, nextRecord);
+                    } else if (record.EventName === 'REMOVE') {
+                        replica.deleteItem({
+                            TableName: process.env.ReplicaTable,
+                            Key: record.Dynamodb.Keys
+                        }, nextRecord);
+                    }
+                });
             });
+
+            serial.awaitAll(nextId);
         });
     });
 
     q.awaitAll(callback);
+};
+
+module.exports.helpers = {
+    actionsPerId: actionsPerId
+};
+
+function actionsPerId(records) {
+    return records.reduce(function(actionsPerId, action) {
+        var id = JSON.stringify(action.Dynamodb.Keys);
+
+        actionsPerId[id] = actionsPerId[id] || [];
+        actionsPerId[id].push(action);
+        return actionsPerId;
+    }, {});
 }
