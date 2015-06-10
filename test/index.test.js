@@ -9,6 +9,8 @@ var stream = require('kinesis-test')(test, 'mapbox-replicator', 1);
 var Dyno = require('dyno');
 var queue = require('queue-async');
 var crypto = require('crypto');
+var dynostreamEventor = require('./fixtures/dynostream-events');
+var dynostreamEvents = dynostreamEventor('INSERT', primaryRecords);
 
 var replicate = require('..');
 
@@ -42,6 +44,7 @@ test('[lambda function] load data', function(assert) {
 test('[lambda function] make an update', function(assert) {
     primaryRecords[4].data = crypto.randomBytes(256).toString('base64');
     var update = primaryRecords[4];
+    dynostreamEvents = dynostreamEvents.concat(dynostreamEventor('MODIFY', [update]));
 
     dyno.updateItem({ id: update.id }, { put: { data: update.data } }, function(err) {
         if (err) throw err;
@@ -51,6 +54,7 @@ test('[lambda function] make an update', function(assert) {
 
 test('[lambda function] make a delete', function(assert) {
     var remove = primaryRecords.pop();
+    dynostreamEvents = dynostreamEvents.concat(dynostreamEventor('REMOVE', [remove]));
 
     dyno.deleteItem({ id: remove.id }, function(err) {
         if (err) throw err;
@@ -66,21 +70,7 @@ test('[lambda function] run', function(assert) {
     process.env.ReplicaRegion = 'mock';
     process.env.ReplicaEndpoint = 'http://localhost:4567';
 
-    var readable = stream.shards[0];
-    var records = [];
-    readable
-        .on('data', function(kinesisRecords) {
-            kinesisRecords.forEach(function(record) {
-                if (record) records.push({
-                    data: record.Data.toString()
-                });
-            });
-
-            if (records.length === primaryRecords.length) readable.close();
-        })
-        .on('end', function() {
-            replicate(records, checkResults);
-        });
+    replicate(dynostreamEvents, checkResults);
 
     function checkResults(err) {
         assert.ifError(err, 'replicated');
