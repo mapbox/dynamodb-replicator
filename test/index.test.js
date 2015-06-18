@@ -71,15 +71,18 @@ test('[lambda function] run', function(assert) {
     readable
         .on('data', function(kinesisRecords) {
             kinesisRecords.forEach(function(record) {
-                if (record) records.push({
-                    data: record.Data.toString()
+                record.data = record.Data;
+                records.push({
+                    eventName: 'aws:kinesis:record',
+                    kinesis: record
                 });
             });
 
             if (records.length === primaryRecords.length) readable.close();
         })
         .on('end', function() {
-            replicate(records, checkResults);
+            var event = { Records: records };
+            replicate(event, checkResults);
         });
 
     function checkResults(err) {
@@ -90,7 +93,7 @@ test('[lambda function] run', function(assert) {
             q.defer(function(next) {
                 replica.dyno.getItem({ id: record.id }, function(err, item) {
                     if (err) return next(err);
-                    assert.deepEqual(record, item, 'expected record in replica');
+                    assert.deepEqual(item, record, 'expected record in replica');
                     next();
                 });
             });
