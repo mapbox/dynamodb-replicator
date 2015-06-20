@@ -16,7 +16,7 @@ function usage() {
     console.error('  --jobid      assign a jobid to this backup');
     console.error('  --segment    segment identifier (0-based)');
     console.error('  --segments   total number of segments');
-    console.error('  --metric     cloudwatch metric given as namespace/metric-name');
+    console.error('  --metric     cloudwatch metric namespace. Will provide dimension TableName = the name of the backed-up table.');
 }
 
 if (args.help) {
@@ -66,19 +66,19 @@ backup(config, function(err, details) {
     if (err) log.error(err);
 
     if (args.metric) {
-        var cw = new AWS.CloudWatch({ region: 'us-east-1' });
+        var cw = new AWS.CloudWatch({ region: config.region });
         var params = {
-            Namespace: args.metric.split('/')[0],
+            Namespace: args.metric,
             MetricData: []
         };
 
         if (err) {
             params.MetricData.push({
-                MetricName: args.metric.split('/')[1],
+                MetricName: 'BackupErrors',
                 Dimensions: [
                     {
-                        Name: 'Type',
-                        Value: 'Error'
+                        Name: 'TableName',
+                        Value: config.table
                     }
                 ],
                 Value: 1
@@ -87,21 +87,21 @@ backup(config, function(err, details) {
 
         if (details) {
             params.MetricData.push({
-                MetricName: args.metric.split('/')[1],
+                MetricName: 'BackupSize',
                 Dimensions: [
                     {
-                        Name: 'Type',
-                        Value: 'Size'
+                        Name: 'TableName',
+                        Value: config.table
                     }
                 ],
                 Value: details.size,
                 Unit: 'Bytes'
             }, {
-                MetricName: args.metric.split('/')[1],
+                MetricName: 'BackupRecordCount',
                 Dimensions: [
                     {
-                        Name: 'Type',
-                        Value: 'RecordCount'
+                        Name: 'TableName',
+                        Value: config.table
                     }
                 ],
                 Value: details.count,

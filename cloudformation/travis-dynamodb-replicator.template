@@ -1,0 +1,91 @@
+{
+    "AWSTemplateFormatVersion": "2010-09-09",
+    "Description": "Travis user for testing dynamodb-replicator",
+    "Resources": {
+        "dynamodbReplicatorUser": {
+            "Type": "AWS::IAM::User",
+            "Properties": {
+                "Path": "/",
+                "Policies": [
+                    {
+                        "PolicyName": "dynamodb-replicator",
+                        "PolicyDocument": {
+                            "Statement": [
+                                {
+                                    "Action": [
+                                        "s3:ListBucket"
+                                    ],
+                                    "Effect": "Allow",
+                                    "Resource": ["arn:aws:s3:::mapbox"],
+                                    "Condition":{"StringLike":{"s3:prefix":["dynamodb-replicator/test*"]}}
+                                }, {
+                                    "Resource": [
+                                        "arn:aws:s3:::mapbox/dynamodb-replicator/test*"
+                                    ],
+                                    "Action": [
+                                        "s3:PutObject",
+                                        "s3:GetObject"
+                                    ],
+                                    "Effect": "Allow"
+                                },
+                                {
+                                    "Action": [
+                                        "dynamodb:CreateTable",
+                                        "dynamodb:DeleteTable",
+                                        "dynamodb:DescribeTable",
+                                        "dynamodb:PutItem",
+                                        "dynamodb:Scan"
+                                    ],
+                                    "Effect": "Allow",
+                                    "Resource": {
+                                        "Fn::Join": [
+                                            "",
+                                            [
+                                                "arn:aws:dynamodb:us-east-1:",
+                                                {
+                                                    "Ref": "AWS::AccountId"
+                                                },
+                                                ":table/dynamodb-replicator-test-*"
+                                            ]
+                                        ]
+                                    }
+                                },
+                                {
+                                    "Action": [
+                                        "cloudwatch:PutMetricData",
+                                        "cloudwatch:GetMetricStatistics"
+                                    ],
+                                    "Effect": "Allow",
+                                    "Resource": "*"
+                                }
+                            ]
+                        }
+                    }
+                ]
+            }
+        },
+        "dynamodbReplicatorKey": {
+            "Type": "AWS::IAM::AccessKey",
+            "Properties": {
+                "UserName": {
+                    "Ref": "dynamodbReplicatorUser"
+                }
+            }
+        }
+    },
+    "Outputs": {
+        "BuildAccessKeyId": {
+            "Value": {
+                "Ref": "dynamodbReplicatorKey"
+            }
+        },
+        "BuildSecretAccessKey": {
+            "Value": {
+                "Fn::GetAtt": [
+                    "dynamodbReplicatorKey",
+                    "SecretAccessKey"
+                ]
+            }
+        }
+    }
+}
