@@ -21,6 +21,8 @@ var dyno = Dyno({
 process.env.ReplicaTable = replica.tableName;
 process.env.ReplicaRegion = 'mock';
 process.env.ReplicaEndpoint = 'http://localhost:4567';
+process.env.AWS_ACCESS_KEY_ID = 'mock';
+process.env.AWS_SECRET_ACCESS_KEY = 'mock';
 
 replica.test('[lambda] insert', function(assert) {
     var event = require(path.join(events, 'insert.json'));

@@ -11,6 +11,7 @@ function replicate(event, callback) {
     var replicaConfig = { region: process.env.ReplicaRegion };
     if (process.env.ReplicaEndpoint) replicaConfig.endpoint = process.env.ReplicaEndpoint;
     var replica = new AWS.DynamoDB(replicaConfig);
+    console.log(replicaConfig);
 
     var allRecords = event.Records.reduce(function(allRecords, action) {
         var id = JSON.stringify(action.Dynamodb.Keys);
@@ -23,34 +24,25 @@ function replicate(event, callback) {
     var q = queue();
 
     Object.keys(allRecords).forEach(function(key) {
-        q.defer(processRecord, allRecords[key], replica);
+        var lastChange = allRecords[key].pop();
+        q.defer(processChange, lastChange, replica);
     });
 
     q.awaitAll(callback);
 }
 
- function processRecord(changes, replica, callback) {
-    var thisRecord = queue(1);
+function processChange(change, replica, callback) {
+    console.log('Processing %s to %j', change.EventName, change.Dynamodb.Keys);
 
-    changes.forEach(function(change) {
-        thisRecord.defer(processChange, change, replica);
-    });
-
-    thisRecord.awaitAll(callback);
-}
-
-function processChange(record, replica, callback) {
-    console.log('Processing %s to %j', record.EventName, record.Dynamodb.Keys);
-
-    if (record.EventName === 'INSERT' || record.EventName === 'MODIFY') {
+    if (change.EventName === 'INSERT' || change.EventName === 'MODIFY') {
         replica.putItem({
             TableName: process.env.ReplicaTable,
-            Item: record.Dynamodb.NewImage
+            Item: change.Dynamodb.NewImage
         }, callback);
-    } else if (record.EventName === 'REMOVE') {
+    } else if (change.EventName === 'REMOVE') {
         replica.deleteItem({
             TableName: process.env.ReplicaTable,
-            Key: record.Dynamodb.Keys
+            Key: change.Dynamodb.Keys
         }, callback);
     }
 }
