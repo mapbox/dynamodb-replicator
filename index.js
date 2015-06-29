@@ -34,7 +34,7 @@ function replicate(event, callback) {
 function processChange(change, replica, callback) {
     var tableName;
     console.log('Processing %s to %j', change.EventName, change.Dynamodb.Keys);
-    if (record.eventSourceARN.indexOf(process.env.PrimaryTables[0]) > -1) {
+    if (change.eventSourceARN.indexOf(process.env.PrimaryTables[0]) > -1) {
         tableName = process.env.PrimaryTables[0];
     } else {
         tableName = process.env.PrimaryTables[1];
@@ -43,11 +43,11 @@ function processChange(change, replica, callback) {
 
     var conditionalPutParams = {
         TableName: tableName,
-        Item: record.Dynamodb.NewImage
+        Item: change.Dynamodb.NewImage
     };
 
-    if (record.EventName === 'INSERT') {
-        var newKeys = Object.keys(record.Dynamodb.NewImage);
+    if (change.EventName === 'INSERT') {
+        var newKeys = Object.keys(change.Dynamodb.NewImage);
 
         conditionalPutParams.Expected = newKeys.reduce(function(memo, key) {
             memo[key] = {
@@ -56,18 +56,18 @@ function processChange(change, replica, callback) {
             return memo;
         }, {});
         dynamo.putItem(conditionalPutParams, handlePutConflict);
-    } else if (record.EventName === 'MODIFY') {
-        var oldKeys = Object.keys(record.Dynamodb.OldImage);
+    } else if (change.EventName === 'MODIFY') {
+        var oldKeys = Object.keys(change.Dynamodb.OldImage);
 
         conditionalPutParams.Expected = oldKeys.reduce(function(memo, key) {
             memo[key] = {
                 ComparisonOperator: 'EQ',
-                Value: record.Dynamodb.OldImage[key]
+                Value: change.Dynamodb.OldImage[key]
             };
             return memo;
         }, {});
         dynamo.putItem(conditionalPutParams, handlePutConflict);
-    } else if (record.EventName === 'REMOVE') {
+    } else if (change.EventName === 'REMOVE') {
         dynamo.deleteItem(conditionalPutParams, handleDeleteConflict);
     }
 
@@ -76,16 +76,16 @@ function processChange(change, replica, callback) {
             // Check to see if the item has already been put, aka, if the existing item equals the new image
             dynamo.getItem({
                 TableName: tableName,
-                Key: record.Dynamodb.Keys
+                Key: change.Dynamodb.Keys
             }, function(err, item) {
                 if (err) return callback(err);
 
-                if (!itemsEqual(item, record.Dynamodb.NewImage)) {
+                if (!itemsEqual(item, change.Dynamodb.NewImage)) {
                     // Put the newest item if the records differ, without any conditional checks
                     console.log('Item in conflict');
                     return dynamo.putItem({
                         TableName: tableName,
-                        Item: record.Dynamodb.NewImage
+                        Item: change.Dynamodb.NewImage
                     }, callback);
                 } else {
                     // Item has already been put, no need to update
@@ -104,7 +104,7 @@ function processChange(change, replica, callback) {
             // Check to see if the item has already been deleted
             dynamo.getItem({
                 TableName: tableName,
-                Key: record.Dynamodb.Keys
+                Key: change.Dynamodb.Keys
             }, function(err, item) {
                 if (err) return callback(err);
 
@@ -116,7 +116,7 @@ function processChange(change, replica, callback) {
                     console.log('Item in conflict');
                     return dynamo.putItem({
                         TableName: tableName,
-                        Key: record.Dynamodb.Keys
+                        Key: change.Dynamodb.Keys
                     }, callback);
                 }
             });

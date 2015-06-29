@@ -18,6 +18,10 @@ var dyno = Dyno({
     endpoint: 'http://localhost:4567'
 });
 
+process.env.MultiPrimaryRegions = [];
+process.env.MultiPrimaryRegions = ['mock', 'mock']
+process.env.MultiPrimaryStreams = [];
+
 process.env.ReplicaTable = replica.tableName;
 process.env.ReplicaRegion = 'mock';
 process.env.ReplicaEndpoint = 'http://localhost:4567';
