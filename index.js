@@ -41,100 +41,88 @@ function processChange(change, replica, callback) {
     }
     console.log('putting to ' + tableName);
 
-    dynamo.getItem({
+    var conditionalPutParams = {
         TableName: tableName,
-        Key: record.Dynamodb.Keys
-    }, function(err, item) {
-        if (err) return context.fail(err);
-        if (Object.keys(item).length === 0) {
-            // The object does not exist in the target table
-            // Needed because !{} !== false
-            item = false;
-        }
+        Item: record.Dynamodb.NewImage
+    };
 
-        if (change.EventName === 'INSERT' || change.EventName === 'MODIFY') {
-            replica.putItem({
-                TableName: process.env.ReplicaTable,
-                Item: change.Dynamodb.NewImage
-            }, callback);
-        } else if (change.EventName === 'REMOVE') {
-            replica.deleteItem({
-                TableName: process.env.ReplicaTable,
-                Key: change.Dynamodb.Keys
-            }, callback);
-        }
-        if (record.EventName === 'INSERT') {
-            if (!item) {
-                // Item doesn't exist, go ahead and put
-                console.log('Item doesn\'t exist, go ahead and put');
-                dynamo.putItem({
-                    TableName: tableName,
-                    Item: record.Dynamodb.NewImage,
-                }, callback);
-            } else if (itemsEqual(item, record.NewImage)) {
-                // Item already exists, do not put
-                console.log('Item already exists, do not put');
-                callback(null);
-            } else {
-                // Items are in conflict :(
-                console.log('Items are in conflict :(');
-                console.log(item);
-                console.log(record.NewImage);
-                callback(null);
-            }
-        } else if (record.EventName === 'REMOVE') {
-            if (!item) {
-                // Item has already been removed, do nothing
-                console.log('Item has already been removed, do nothing');
-                callback(null);
-            } else if (itemsEqual(item, record.OldImage)) {
-                // Items are equal, go ahead and delete
-                console.log('Items are equal, go ahead and delete');
-                dynamo.deleteItem({
-                    TableName: tableName,
-                    Key: record.Dynamodb.Keys
-                }, callback);
-            } else {
-                // Items are in conflict :(
-                console.log('Items are in conflict :(');
-                console.log(item);
-                console.log(record.OldImage);
-                callback(null);
-            }
-        } else if (record.EventName === 'MODIFY') {
-            if (!item) {
-                // Item has already been removed, Items are in conflict :(
-                console.log('Items are in conflict :(');
-                callback(null);
-            } else if (itemsEqual(item, record.OldImage)) {
-                // Items is ready to be updated to the new state
-                console.log('Items is ready to be updated to the new state');
-                dynamo.putItem({
-                    TableName: tableName,
-                    Item: record.Dynamodb.NewImage,
-                }, callback);
-            } else if (itemsEqual(item, record.NewImage)) {
-                // Items has already been updated
-                console.log('Items has already been updated');
-                callback(null);
-            } else {
-                // Items are in conflict :(
-                console.log('Items are in conflict :(');
-                console.log(item);
-                console.log(record.OldImage);
-                console.log(record.NewImage);
-                callback(null);
-            }
-        }
-    });
-}
+    if (record.EventName === 'INSERT') {
+        var newKeys = Object.keys(record.Dynamodb.NewImage);
 
-function itemsEqual(itema, itemb) {
-    if (typeof itema === 'object' && typeof itemb === 'object') {
-        return Object.keys(itema).every(function(key) {
-            return itemsEqual(itema[key], itemb[key]);
-        });
-    } else {
-        return itema === itemb;
+        conditionalPutParams.Expected = newKeys.reduce(function(memo, key) {
+            memo[key] = {
+                Exists: false
+            };
+            return memo;
+        }, {});
+        dynamo.putItem(conditionalPutParams, handlePutConflict);
+    } else if (record.EventName === 'MODIFY') {
+        var oldKeys = Object.keys(record.Dynamodb.OldImage);
+
+        conditionalPutParams.Expected = oldKeys.reduce(function(memo, key) {
+            memo[key] = {
+                ComparisonOperator: 'EQ',
+                Value: record.Dynamodb.OldImage[key]
+            };
+            return memo;
+        }, {});
+        dynamo.putItem(conditionalPutParams, handlePutConflict);
+    } else if (record.EventName === 'REMOVE') {
+        dynamo.deleteItem(conditionalPutParams, handleDeleteConflict);
+    }
+
+    function handlePutConflict(err, item) {
+        if (err && err.code === 'ConditionalCheckFailedException') {
+            // Check to see if the item has already been put, aka, if the existing item equals the new image
+            dynamo.getItem({
+                TableName: tableName,
+                Key: record.Dynamodb.Keys
+            }, function(err, item) {
+                if (err) return callback(err);
+
+                if (!itemsEqual(item, record.Dynamodb.NewImage)) {
+                    // Put the newest item if the records differ, without any conditional checks
+                    console.log('Item in conflict');
+                    return dynamo.putItem({
+                        TableName: tableName,
+                        Item: record.Dynamodb.NewImage
+                    }, callback);
+                } else {
+                    // Item has already been put, no need to update
+                    console.log('Item already in correct state');
+                    return callback();
+                }
+            });
+        } else if (err) {
+            return callback(err);
+        }
+        return callback();
+    }
+
+    function handleDeleteConflict(err, item) {
+        if (err && err.code === 'ConditionalCheckFailedException') {
+            // Check to see if the item has already been deleted
+            dynamo.getItem({
+                TableName: tableName,
+                Key: record.Dynamodb.Keys
+            }, function(err, item) {
+                if (err) return callback(err);
+
+                if (itemsEqual(item, {})) {
+                    console.log('Item already deleted');
+                    return callback();
+                } else {
+                    // Delete, this time without conditional
+                    console.log('Item in conflict');
+                    return dynamo.putItem({
+                        TableName: tableName,
+                        Key: record.Dynamodb.Keys
+                    }, callback);
+                }
+            });
+        } else if (err) {
+            return callback(err);
+        }
+        return callback();
     }
 }
