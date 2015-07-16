@@ -1,110 +1,89 @@
 var test = require('tape');
 var tableDef = require('./fixtures/table');
-var records = require('./fixtures/records');
-var primaryRecords = records(10);
 var DynamoDB = require('dynamodb-test');
-var primary = DynamoDB(test, 'mapbox-replicator', tableDef);
 var replica = DynamoDB(test, 'mapbox-replicator', tableDef);
-var stream = require('kinesis-test')(test, 'mapbox-replicator', 1);
 var Dyno = require('dyno');
-var queue = require('queue-async');
-var crypto = require('crypto');
-
+var path = require('path');
+var events = path.resolve(__dirname, 'fixtures', 'events');
 var replicate = require('..');
+var _ = require('underscore');
 
-primary.start();
 replica.start();
-stream.start();
 
 var dyno = Dyno({
-    table: primary.tableName,
+    table: replica.tableName,
     region: 'mock',
     accessKeyId: 'mock',
     secretAccessKey: 'mock',
-    endpoint: 'http://localhost:4567',
-    kinesisConfig: {
-        stream: stream.streamName,
-        region: 'mock',
-        key: ['id'],
-        accessKeyId: 'mock',
-        secretAccessKey: 'mock',
-        endpoint: 'http://localhost:7654'
-    }
+    endpoint: 'http://localhost:4567'
 });
 
-test('[lambda function] load data', function(assert) {
-    dyno.putItems(primaryRecords, function(err) {
-        if (err) throw err;
-        assert.end();
-    });
-});
+process.env.ReplicaTable = replica.tableName;
+process.env.ReplicaRegion = 'mock';
+process.env.ReplicaEndpoint = 'http://localhost:4567';
+process.env.AWS_ACCESS_KEY_ID = 'mock';
+process.env.AWS_SECRET_ACCESS_KEY = 'mock';
 
-test('[lambda function] make an update', function(assert) {
-    primaryRecords[4].data = crypto.randomBytes(256).toString('base64');
-    var update = primaryRecords[4];
-
-    dyno.updateItem({ id: update.id }, { put: { data: update.data } }, function(err) {
-        if (err) throw err;
-        assert.end();
-    });
-});
-
-test('[lambda function] make a delete', function(assert) {
-    var remove = primaryRecords.pop();
-
-    dyno.deleteItem({ id: remove.id }, function(err) {
-        if (err) throw err;
-        assert.end();
-    });
-});
-
-test('[lambda function] run', function(assert) {
-    process.env.PrimaryTable = primary.tableName;
-    process.env.PrimaryRegion = 'mock';
-    process.env.PrimaryEndpoint = 'http://localhost:4567';
-    process.env.ReplicaTable = replica.tableName;
-    process.env.ReplicaRegion = 'mock';
-    process.env.ReplicaEndpoint = 'http://localhost:4567';
-
-    var readable = stream.shards[0];
-    var records = [];
-    readable
-        .on('data', function(kinesisRecords) {
-            kinesisRecords.forEach(function(record) {
-                record.data = record.Data;
-                records.push({
-                    eventName: 'aws:kinesis:record',
-                    kinesis: record
-                });
-            });
-
-            if (records.length === primaryRecords.length) readable.close();
-        })
-        .on('end', function() {
-            var event = { Records: records };
-            replicate(event, checkResults);
-        });
-
-    function checkResults(err) {
-        assert.ifError(err, 'replicated');
-
-        var q = queue();
-        primaryRecords.forEach(function(record) {
-            q.defer(function(next) {
-                replica.dyno.getItem({ id: record.id }, function(err, item) {
-                    if (err) return next(err);
-                    assert.deepEqual(item, record, 'expected record in replica');
-                    next();
-                });
-            });
-        });
-
-        q.await(function(err) {
-            assert.ifError(err, 'found records in replica');
+replica.test('[lambda] insert', function(assert) {
+    var event = require(path.join(events, 'insert.json'));
+    replicate(event, function(err) {
+        assert.ifError(err, 'success');
+        dyno.scan(function(err, data) {
+            if (err) throw err;
+            assert.deepEqual(data, [{ range: 1, id: 'record-1' }], 'inserted desired record');
             assert.end();
         });
-    }
+    });
 });
 
-stream.close();
-primary.close();
+replica.test('[lambda] insert & modify', function(assert) {
+    var event = require(path.join(events, 'insert-modify.json'));
+    replicate(event, function(err) {
+        assert.ifError(err, 'success');
+        dyno.scan(function(err, data) {
+            if (err) throw err;
+            assert.deepEqual(data, [{ range: 2, id: 'record-1' }], 'inserted & modified desired record');
+            assert.end();
+        });
+    });
+});
+
+replica.test('[lambda] insert, modify & delete', function(assert) {
+    var event = require(path.join(events, 'insert-modify-delete.json'));
+    replicate(event, function(err) {
+        assert.ifError(err, 'success');
+        dyno.scan(function(err, data) {
+            if (err) throw err;
+            assert.deepEqual(data, [], 'inserted, modified, and deleted desired record');
+            assert.end();
+        });
+    });
+});
+
+replica.test('[lambda] adjust many', function(assert) {
+    var event = require(path.join(events, 'adjust-many.json'));
+    replicate(event, function(err) {
+        assert.ifError(err, 'success');
+        dyno.scan(function(err, data) {
+            if (err) throw err;
+
+            var expected = [
+                { range: 22, id: 'record-2' },
+                { range: 33, id: 'record-3' },
+            ];
+
+            data = data.map(Dyno.serialize);
+            expected = expected.map(Dyno.serialize);
+
+            assert.equal(
+                _.intersection(data, expected).length,
+                expected.length,
+                'adjusted many records correctly'
+            );
+
+            assert.end();
+        });
+    });
+});
+
+replica.close();

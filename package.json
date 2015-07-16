@@ -38,7 +38,6 @@
   "devDependencies": {
     "dynalite": "^0.5.2",
     "dynamodb-test": "^0.1.0",
-    "kinesis-test": "^0.1.1",
     "tape": "^4.0.0"
   }
 }
