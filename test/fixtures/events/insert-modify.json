@@ -1,10 +1,10 @@
 {
     "Records":[
         {
-            "EventName":"INSERT",
-            "EventVersion":"1.0",
-            "EventSource":"aws:dynamodb",
-            "Dynamodb": {
+            "eventName":"INSERT",
+            "eventVersion":"1.0",
+            "eventSource":"aws:dynamodb",
+            "dynamodb": {
                 "NewImage":{
                     "range": {
                         "N": "1"
@@ -22,15 +22,15 @@
                     }
                 }
             },
-            "EventID":"1",
+            "eventID":"1",
             "eventSourceARN":"arn:aws:dynamodb:us-east-1:123456789012:table/fake",
-            "AwsRegion":"us-east-1"
+            "awsRegion":"us-east-1"
         },
         {
-            "EventName":"MODIFY",
-            "EventVersion":"1.0",
-            "EventSource":"aws:dynamodb",
-            "Dynamodb": {
+            "eventName":"MODIFY",
+            "eventVersion":"1.0",
+            "eventSource":"aws:dynamodb",
+            "dynamodb": {
                 "NewImage":{
                     "range": {
                         "N": "2"
@@ -56,9 +56,9 @@
                     }
                 }
             },
-            "EventID":"2",
+            "eventID":"2",
             "eventSourceARN":"arn:aws:dynamodb:us-east-1:123456789012:table/fake",
-            "AwsRegion":"us-east-1"
+            "awsRegion":"us-east-1"
         }
     ]
 }
