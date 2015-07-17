@@ -11,10 +11,9 @@ function replicate(event, callback) {
     var replicaConfig = { region: process.env.ReplicaRegion };
     if (process.env.ReplicaEndpoint) replicaConfig.endpoint = process.env.ReplicaEndpoint;
     var replica = new AWS.DynamoDB(replicaConfig);
-    console.log(replicaConfig);
 
     var allRecords = event.Records.reduce(function(allRecords, action) {
-        var id = JSON.stringify(action.Dynamodb.Keys);
+        var id = JSON.stringify(action.dynamodb.Keys);
 
         allRecords[id] = allRecords[id] || [];
         allRecords[id].push(action);
@@ -32,17 +31,17 @@ function replicate(event, callback) {
 }
 
 function processChange(change, replica, callback) {
-    console.log('Processing %s to %j', change.EventName, change.Dynamodb.Keys);
+    console.log('Processing %s to %j', change.eventName, change.dynamodb.Keys);
 
-    if (change.EventName === 'INSERT' || change.EventName === 'MODIFY') {
+    if (change.eventName === 'INSERT' || change.eventName === 'MODIFY') {
         replica.putItem({
             TableName: process.env.ReplicaTable,
-            Item: change.Dynamodb.NewImage
+            Item: change.dynamodb.NewImage
         }, callback);
-    } else if (change.EventName === 'REMOVE') {
+    } else if (change.eventName === 'REMOVE') {
         replica.deleteItem({
             TableName: process.env.ReplicaTable,
-            Key: change.Dynamodb.Keys
+            Key: change.dynamodb.Keys
         }, callback);
     }
 }
