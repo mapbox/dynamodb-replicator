@@ -86,4 +86,33 @@ replica.test('[lambda] adjust many', function(assert) {
     });
 });
 
+replica.test('[lambda] insert with buffers', function(assert) {
+    var event = require(path.join(events, 'insert-buffer.json'));
+    replicate(event, function(err) {
+        assert.ifError(err, 'success');
+        dyno.scan(function(err, data) {
+            if (err) throw err;
+
+            var expected = {
+                range: 1,
+                id: 'record-1',
+                val: new Buffer('hello'),
+                map: { prop: new Buffer('hello') },
+                list: ['string', new Buffer('hello')],
+                bufferSet: Dyno.createSet([new Buffer('hello')], 'B')
+            };
+
+            data = data[0];
+
+            assert.equal(data.range, expected.range, 'expected range');
+            assert.equal(data.id, expected.id, 'expected id');
+            assert.deepEqual(data.val, expected.val, 'expected val');
+            assert.deepEqual(data.map, expected.map, 'expected map');
+            assert.deepEqual(data.list, expected.list, 'expected list');
+            assert.deepEqual(data.bufferSet.contents, expected.bufferSet.contents, 'expected bufferSet.contents');
+            assert.end();
+        });
+    });
+});
+
 replica.close();
