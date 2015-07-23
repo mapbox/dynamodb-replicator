@@ -1,9 +1,13 @@
 var AWS = require('aws-sdk');
 var queue = require('queue-async');
 var streambot = require('streambot');
+var crypto = require('crypto');
+var s3 = new AWS.S3();
 
-module.exports = replicate;
-module.exports.streambot = streambot(replicate);
+module.exports.replicate = replicate;
+module.exports.streambotReplicate = streambot(replicate);
+module.exports.backup = incrementalBackup;
+module.exports.streambotBackup = streambot(incrementalBackup);
 
 function replicate(event, callback) {
     console.log('Env: %s', JSON.stringify(process.env));
@@ -71,4 +75,55 @@ function processChange(change, replica, callback) {
             Key: change.dynamodb.Keys
         }, callback);
     }
+}
+
+function incrementalBackup(event, callback) {
+    console.log('Env: %s', JSON.stringify(process.env));
+
+    var allRecords = event.Records.reduce(function(allRecords, action) {
+        var id = JSON.stringify(action.dynamodb.Keys);
+
+        allRecords[id] = allRecords[id] || [];
+        allRecords[id].push(action);
+        return allRecords;
+    }, {});
+
+    var q = queue();
+
+    Object.keys(allRecords).forEach(function(key) {
+        q.defer(backupRecord, allRecords[key]);
+    });
+
+    q.awaitAll(function(err) {
+        if (err) throw err;
+        callback();
+    });
+}
+
+function backupRecord(changes, callback) {
+    var q = queue(1);
+
+    changes.forEach(function(change) {
+        q.defer(function(next) {
+            var id = crypto.createHash('md5')
+                .update(JSON.stringify(change.dynamodb.Keys))
+                .digest('hex');
+
+            var table = change.eventSourceARN.split('/')[1];
+
+            var params = {
+                Bucket: process.env.BackupBucket,
+                Key: [process.env.BackupPrefix, table, id].join('/')
+            };
+
+            console.log('Backing up %s to %j', change.eventName, change.dynamodb.Keys);
+
+            var req = change.eventName === 'REMOVE' ? 'deleteObject' : 'putObject';
+            if (req === 'putObject') params.Body = JSON.stringify(change.dynamodb.NewImage);
+
+            s3[req](params, next);
+        });
+    });
+
+    q.awaitAll(callback);
 }
