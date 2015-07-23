@@ -4,21 +4,34 @@ var Dyno = require('dyno');
 var args = require('minimist')(process.argv.slice(2));
 var assert = require('assert');
 
+function usage() {
+    console.error('');
+    console.error('Usage: diff-record <primary region/table> <replica region/table> <key>');
+}
+
+if (args.help) {
+    usage();
+    process.exit(0);
+}
+
 args.primary = args._[0];
 if (!args.primary) {
     console.error('You must specify the primary region/table');
+    usage();
     process.exit(1);
 }
 
 args.replica = args._[1];
 if (!args.replica) {
     console.error('You must specify the replica region/table');
+    usage();
     process.exit(1);
 }
 
 var key = args._[2];
 if (!key) {
     console.error('You must specify the key for the record to check');
+    usage();
     process.exit(1);
 }
 
@@ -26,6 +39,7 @@ try { key = JSON.parse(key); }
 catch (err) {
     console.error(key);
     console.error('The key provided is not a valid JSON string');
+    usage();
     process.exit(1);
 }
 

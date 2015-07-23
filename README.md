@@ -1,30 +1,38 @@
 # dynamodb-replicator
 
-[dynamodb-replicator](https://github.com/mapbox/dynamodb-replicator) offers several different mechanisms to provide redundancy and recoverability on DynamoDB tables using a primary-replica model:
+[dynamodb-replicator](https://github.com/mapbox/dynamodb-replicator) offers several different mechanisms to manage redundancy and recoverability on [DynamoDB](http://aws.amazon.com/documentation/dynamodb) tables.
 
-- A **replicator** function that processes events in a DynamoDB stream representing changes made to the primary table and writes them to a replica DynamoDB table. The function is designed to be run as an [AWS Lambda function](http://aws.amazon.com/documentation/lambda/), optionally with deployment assistance from [streambot](https://github.com/mapbox/streambot).
-- An **incremental backup** function that processes events in a DynamoDB stream representing changes made to the primary table and writes them as individual objects to a location on S3. The function is designed to be run as an [AWS Lambda function](http://aws.amazon.com/documentation/lambda/), optionally with deployment assistance from [streambot](https://github.com/mapbox/streambot).
-- A **diff-tables** script to that scans the primary table, and checks that each individual record in the replica table is up-to-date. The goal is to double-check that the replicator is performing as is should, and the two tables are completely consistent.
-- A **backup-table** script that scans a single table, and writes the data to files on S3.
+- A **replicator** function that processes events from a DynamoDB stream, replaying changes made to the primary table and onto a replica table. The function is designed to be run as an [AWS Lambda function](http://aws.amazon.com/documentation/lambda/), optionally with deployment assistance from [streambot](https://github.com/mapbox/streambot).
+- An **incremental backup** function that processes events from a DynamoDB stream, replaying them as writes to individual objects on S3. The function is designed to be run as an [AWS Lambda function](http://aws.amazon.com/documentation/lambda/), optionally with deployment assistance from [streambot](https://github.com/mapbox/streambot).
+- A **consistency check** script that scans the primary table and checks that each individual record in the replica table is up-to-date. The goal is to double-check that the replicator is performing as is should, and the two tables are completely consistent.
+- A **table dump** script that scans a single table, and writes the data to a file on S3, providing a snapshot of the table's state.
+- A **snapshot** script that scans an S3 folder where incremental backups have been made, and writes the aggregate to a file on S3, providing a snapshot of the backup's state.
 
-### Design
+## Design
 
-Replication involves many moving parts, of which dynamodb-replicator is only one. Please read [DESIGN.md](https://github.com/mapbox/dynamodb-replicator/blob/master/DESIGN.md) for an in-depth explanation.
+Managing table redundancy and backups involves many moving parts. Please read [DESIGN.md](https://github.com/mapbox/dynamodb-replicator/blob/master/DESIGN.md) for an in-depth explanation.
 
-### replicator usage
+## Utility scripts
 
-The replicator function is designed to be run as an [AWS Lambda function](http://aws.amazon.com/documentation/lambda/) reading from a table's [DynamoDB stream](http://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Streams.html). [Streambot](https://github.com/mapbox/streambot) is a helpful library to assist in deploying Lambda functions and managing runtime configuration that the replication function will need.
+[dynamodb-replicator](https://github.com/mapbox/dynamodb-replicator) provides several CLI tools to help manage your DynamoDB table.
 
-### incremental backups
+### diff-record
 
-dynamodb-replicator provides functions that can help maintain an S3 folder where each object represents the current state of a record from a DyanmoDB table. In a [versioned bucket](), this can provide a history of changes made to the table.
+Given two tables and an item's key, this script looks up the record in both tables and checks for consistency.
 
-Dynamodb-replicator provides three useful routines for maintaining an S3 clone, or incremental backup, of your table:
-- An incremental backup function, designed to run as a Lambda function that consumes records from your table's DynamoDB stream and writes each item to S3
-- An `incremental-backfill` script, run once to fill the existing table state into the S3 folder
-- An `incremental-snapshot` script, which you can run periodically to produce a snapshot of your database state at some point in time. This snapshot is compatible with the restore function mentioned above.
+```
+$ npm install -g dynamodb-replicator
+$ diff-record --help
 
-### diff-tables usage
+Usage: diff-record <primary region/table> <replica region/table> <key>
+
+# Check for discrepancies between an item in two tables
+$ diff-record us-east-1/primary eu-west-1/replica '{"id":"abc"}'
+```
+
+### diff-tables
+
+Given two tables and a set of options, performs a complete consistency check on the two, optionally repairing records in the replica table that differ from the primary.
 
 ```
 $ npm install -g dynamodb-replicator
@@ -38,10 +46,10 @@ Options:
   --segments   total number of segments
   --backfill   only scan primary table and write to replica
 
-# log information about discrepancies between the two tables
+# Log information about discrepancies between the two tables
 $ diff-tables us-east-1/primary eu-west-2/replica
 
-# repair the replica to match the primary
+# Repair the replica to match the primary
 $ diff-tables us-east-1/primary eu-west-2/replica --repair
 
 # Only backfill the replica. Useful for starting a new replica
@@ -51,7 +59,9 @@ $ diff-tables us-east-1/primary eu-west-2/new-replica --backfill --repair
 $ diff-tables us-east-1/primar eu-west-2/replica --repair --segment 0 --segments 10
 ```
 
-### backup-table usage
+### backup-table
+
+Scans a table and dumps the entire set of records as a line-delimited JSON file on S3.
 
 ```
 $ npm install -g dynamodb-replicator
@@ -63,6 +73,7 @@ Options:
   --jobid      assign a jobid to this backup
   --segment    segment identifier (0-based)
   --segments   total number of segments
+  --metric     cloudwatch metric namespace. Will provide dimension TableName = the name of the backed-up table.
 
 # Writes a backup file to s3://my-bucket/some-prefix/<random string>/0
 $ backup-table us-east-1/primary s3://my-bucket/some-prefix
@@ -74,4 +85,36 @@ $ backup-table us-east-1/primary s3://my-bucket/some-prefix --jobid my-job-id
 # Perform one segment of a parallel backup
 # Writes a backup file to s3://my-bucket/some-prefix/my-job-id/4
 $ backup-table us-east-1/primary s3://my-bucket/some-prefix --jobid my-job-id --segment 4 --segments 10
+```
+
+### incremental-backfill
+
+Scans a table and dumps each individual record as an object to a folder on S3.
+
+```
+$ npm install -g dynamodb-replicator
+$ incremental-backfill --help
+
+Usage: incremental-backfill region/table s3url
+
+# Write each item in the table to S3. `s3url` should provide any desired bucket/prefix.
+# The name of the table will be appended to the s3 prefix that you provide.
+$ incremental-backfill us-east-1/primary s3://dynamodb-backups/incremental
+```
+
+### incremental-snapshot
+
+Reads each item in an S3 folder representing an incremental table backup, and writes an aggregate line-delimited JSON file to S3.
+
+```
+$ npm install -g dynamodb-replicator
+$ incremental-snapshot --help
+
+Usage: incremental-snapshot <source> <dest>
+
+Options:
+  --metric     cloudwatch metric region/namespace/tablename. Will provide dimension TableName = the tablename.
+
+# Aggregate all the items in an S3 folder into a single snapshot file
+$ incremental-snapshot s3://dynamodb-backups/incremental/primary s3://dynamodb-backups/snapshots/primary
 ```

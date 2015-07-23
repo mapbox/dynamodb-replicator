@@ -6,7 +6,7 @@ This replication system is built such that there is a **primary** table and a **
 
 [Dyno](https://github.com/mapbox/dyno), the client that we use for interactions with DynamoDB can be [configured to read from one table and write to another](https://github.com/mapbox/dyno#multi--kinesisconfig). The primary table has a DynaoDB stream associated with it, while the replica table does not need to.
 
-The actual replication is performed via an [AWS Lambda function](https://github.com/mapbox/dynamodb-replicator/blob/master/index.js) which reads from the primary table's DynamoDB stream, and duplicates those changes in the replica table.
+Replication is performed via an [AWS Lambda function](https://github.com/mapbox/dynamodb-replicator/blob/master/index.js) which reads from the primary table's DynamoDB stream and duplicates changes onto the replica table.
 
 ```
  us-east-1                         eu-west-1
@@ -32,9 +32,9 @@ reads |                                 reads
 -----------                       -----------
 ```
 
-## Repair
+## Consistency and repair
 
-The [diff-tables script provided by dynamodb-replicator](https://github.com/mapbox/dynamodb-replicator/blob/master/bin/diff-tables.js) slowly scans the primary table, and record-by-record checks that the replica table's data is up-to-date. If it encounters any discrepancies, the data in the replica table is updated to match the primary table. This script can also be used to backfill a brand new replica table.
+The [diff-tables script provided by dynamodb-replicator](https://github.com/mapbox/dynamodb-replicator/blob/master/bin/diff-tables.js) scans the primary table, and performs record-by-record checks that the replica table's data is up-to-date. If it encounters any discrepancies, the data in the replica table is updated to match the primary table. This script can also be used to backfill a brand new replica table.
 
 ```
         primary                                     replica
@@ -63,24 +63,20 @@ The [diff-tables script provided by dynamodb-replicator](https://github.com/mapb
 ------------------------ --+                ------------------------
 ```
 
-This gives us a system where changes to the primary table are rapidly implemented in the replica tables via Kinesis + Lambda **replication**. The **replica repair** system gives us additional certainty that replication is doing its job, and provides a system by which we can recover a database in one region by reading the data out of a table in another region.
+This gives us a system where changes to the primary table are rapidly implemented in the replica tables via DynamoDB stream + Lambda **replication**. The **consistency check** system gives us additional certainty that replication is doing its job, and provides a system by which we can recover a database in one region by reading the data out of a table in another region.
 
 ## Backup and Restore
 
-The backup-table script [reads each record from a table and writes it to a file on S3](https://github.com/mapbox/dynamodb-replicator/blob/master/bin/backup-table.js). Running this script on a regular basis helps build resiliency against data corruption: if corrupt data were located, a trail of past states exists on S3 that can be recovered from.
+The library provides scripts for two approaches to backup:
+1. A [`backup-table` script](https://github.com/mapbox/dynamodb-replicator/blob/master/bin/backup-table.js) can scan the primary table and write a dump file to S3. Running this script on a regular basis helps build resiliency against data corruption: if corrupt data were located, a trail of past states exists on S3 that can be recovered from.
 
-[Dyno has a CLI](https://github.com/mapbox/dyno#usage) that includes an `import` command that can be used to read the backup data back into a table. This can be used to recover an entire database from an S3 backups. Running a restore looks something like:
+  [Dyno includes a CLI tool](https://github.com/mapbox/dyno#usage) with an `import` command that can be used to read the backup data back into a table. This can be used to recover an entire database from an dump. Running a restore looks something like:
 
-```sh
-$ npm install -g s3print dyno
-$ s3print s3://my-bucket/my-database-backup | dyno put us-east-1/my-new-database
-```
+  ```sh
+  $ npm install -g s3print dyno
+  $ s3print s3://my-bucket/my-database-backup | dyno put us-east-1/my-new-database
+  ```
 
-## Maintaining an S3 database clone
+2. An incremental backup system involves a Lambda function that reads changes from the primary table's DynamoDB stream and writes each change to a file on S3. The result is an S3 "clone" of the current state of the DynamoDB table where one table record = one S3 object. In a [versioned S3 bucket](http://docs.aws.amazon.com/AmazonS3/latest/dev/Versioning.html), this can proved a complete history of changes made to the table.
 
-An alternative to the above backup and restore routines involves maintaining an S3 folder where each object represents a record from the DyanmoDB table. In a [versioned bucket](), this can provide a history of changes made to the table.
-
-Dynamodb-replicator provides three useful routines for maintaining an S3 clone, or incremental backup, of your table:
-- An incremental backup function, designed to consume records from your table's DynamoDB stream and write each item to S3
-- An `incremental-backfill` script, run once to fill the existing table state into the S3 folder
-- An `incremental-snapshot` script, which you can run periodically to produce a snapshot of your database state at some point in time. This snapshot is compatible with the restore function mentioned above.
+  An [`incremental-snapshot` script](https://github.com/mapbox/dynamodb-replicator/blob/master/bin/incremental-snapshot.js) is capable of reading each item in the S3 folder and writing the aggregate to a file, resulting a snapshot of your table's state similar to a direct scan approach. The resulting file can also be consumed using Dyno's CLI tool.
