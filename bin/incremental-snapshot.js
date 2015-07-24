@@ -96,7 +96,7 @@ snapshot(config, function(err, details) {
 
         cw.putMetricData(params, function(err) {
             if (err) log.error(err);
-            log('Wrote ')
+            else log.info('Wrote %s size / %s count metrics to %s', details.size, details.count, args.metric);
         });
     }
 });
