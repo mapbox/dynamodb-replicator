@@ -8,6 +8,12 @@ var queue = require('queue-async');
 var zlib = require('zlib');
 var stream = require('stream');
 
+function AwsError(err, requestParams) {
+    Error.captureStackTrace(err, arguments.callee);
+    if (requestParams) err.parameters = requestParams;
+    return err;
+}
+
 module.exports = function(config, done) {
     var log = config.log || console.log;
     var starttime = Date.now();
@@ -67,7 +73,7 @@ module.exports = function(config, done) {
         if (keyStream.next) params.Marker = keyStream.next;
 
         s3.listObjects(params, function(err, data) {
-            if (err) return keyStream.emit('error', err);
+            if (err) return keyStream.emit('error', AwsError(err, params));
 
             var last = data.Contents.slice(-1)[0];
             var more = data.IsTruncated && last;
@@ -95,12 +101,15 @@ module.exports = function(config, done) {
 
         getStream.pending++;
         getStream.queue.defer(function(next) {
-            s3.getObject({
+            var params = {
                 Bucket: config.source.bucket,
                 Key: key.toString()
-            }, function(err, data) {
+            };
+
+            s3.getObject(params, function(err, data) {
                 getStream.pending--;
-                if (err) return next(err);
+                if (err && err.statusCode !== 404) return next(AwsError(err, params));
+                if (err) log(AwsError(err, params));
                 count++;
                 getStream.push(data.Body + '\n');
                 next();
