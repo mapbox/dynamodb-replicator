@@ -24,6 +24,8 @@ function replicate(event, callback) {
         return allRecords;
     }, {});
 
+    console.log('%s effected keys: %s', Object.keys(allRecords).length, Object.keys(allRecords));
+
     var q = queue();
 
     Object.keys(allRecords).forEach(function(key) {
@@ -35,8 +37,6 @@ function replicate(event, callback) {
 }
 
 function processChange(change, replica, callback) {
-    console.log('Processing %s to %j', change.eventName, change.dynamodb.Keys);
-
     if (change.eventName === 'INSERT' || change.eventName === 'MODIFY') {
         var newItem = (function decodeBuffers(obj) {
             if (typeof obj !== 'object') return obj;
@@ -68,12 +68,20 @@ function processChange(change, replica, callback) {
         replica.putItem({
             TableName: process.env.ReplicaTable,
             Item: newItem
-        }, callback);
+        }, function(err) {
+            if (err) return callback(err);
+            console.log('Replicated %s to %j', change.eventName, change.dynamodb.Keys);
+            callback();
+        });
     } else if (change.eventName === 'REMOVE') {
         replica.deleteItem({
             TableName: process.env.ReplicaTable,
             Key: change.dynamodb.Keys
-        }, callback);
+        }, function(err) {
+            if (err) return callback(err);
+            console.log('Replicated %s to %j', change.eventName, change.dynamodb.Keys);
+            callback();
+        });
     }
 }
 
@@ -87,6 +95,8 @@ function incrementalBackup(event, callback) {
         allRecords[id].push(action);
         return allRecords;
     }, {});
+
+    console.log('%s effected keys: %s', Object.keys(allRecords).length, Object.keys(allRecords));
 
     var q = queue();
 
@@ -116,12 +126,14 @@ function backupRecord(changes, callback) {
                 Key: [process.env.BackupPrefix, table, id].join('/')
             };
 
-            console.log('Backing up %s to %j', change.eventName, change.dynamodb.Keys);
-
             var req = change.eventName === 'REMOVE' ? 'deleteObject' : 'putObject';
             if (req === 'putObject') params.Body = JSON.stringify(change.dynamodb.NewImage);
 
-            s3[req](params, next);
+            s3[req](params, function(err) {
+                if (err) return next(err);
+                console.log('Backed up %s to %j', change.eventName, change.dynamodb.Keys);
+                next();
+            });
         });
     });
 
