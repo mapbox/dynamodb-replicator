@@ -40,7 +40,7 @@ module.exports = function(config, done) {
             }, {});
 
             var id = crypto.createHash('md5')
-                .update(JSON.stringify(key))
+                .update(Dyno.serialize(key))
                 .digest('hex');
 
             var params = {
