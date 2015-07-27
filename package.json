@@ -11,7 +11,9 @@
     "diff-record": "bin/diff-record.js",
     "backup-table": "bin/backup-table.js",
     "incremental-backfill": "bin/incremental-backfill.js",
-    "incremental-snapshot": "bin/incremental-snapshot.js"
+    "incremental-snapshot": "bin/incremental-snapshot.js",
+    "incremental-backup-record": "bin/incremental-backup-record.js",
+    "incremental-diff-record": "bin/incremental-diff-record.js"
   },
   "repository": {
     "type": "git",

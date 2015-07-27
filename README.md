@@ -118,3 +118,37 @@ Options:
 # Aggregate all the items in an S3 folder into a single snapshot file
 $ incremental-snapshot s3://dynamodb-backups/incremental/primary s3://dynamodb-backups/snapshots/primary
 ```
+
+### incremental-diff-record
+
+Checks for consistency between a DynamoDB record and its backed-up version on S3.
+
+```
+$ npm install -g dynamodb-replicator
+$ bin/incremental-diff-record.js --help
+
+Usage: incremental-diff-record <tableinfo> <s3url> <recordkey>
+ - tableinfo: the table where the record lives, specified as `region/tablename`
+ - s3url: s3 folder where the incremental backups live
+ - recordkey: the key for the record specified as a JSON object
+
+# Check that a record is up-to-date in the incremental backup
+$ incremental-diff-record us-east-1/primary s3://dynamodb-backups/incremental/primary '{"id":"abc"}'
+```
+
+### incremental-backup-record
+
+Copies a DynamoDB record's present state to an incremental backup folder on S3.
+
+```
+$ npm install -g dynamodb-replicator
+$ bin/incremental-backup-record.js --help
+
+Usage: incremental-backup-record <tableinfo> <s3url> <recordkey>
+ - tableinfo: the table to backup from, specified as `region/tablename`
+ - s3url: s3 folder into which the record should be backed up to
+ - recordkey: the key for the record specified as a JSON object
+
+# Backup a single record to S3
+$ incremental-backup-record us-east-1/primary s3://dynamodb-backups/incremental/primary '{"id":"abc"}'
+```

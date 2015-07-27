@@ -35,13 +35,9 @@ if (!key) {
     process.exit(1);
 }
 
-try { key = JSON.parse(key); }
-catch (err) {
-    console.error(key);
-    console.error('The key provided is not a valid JSON string');
-    usage();
-    process.exit(1);
-}
+// Converts incoming strings in wire or dyno format into dyno format
+try { key = Dyno.deserialize(key); }
+catch (err) { key = JSON.parse(key); }
 
 var primaryConfig = {
     table: args.primary.split('/')[1],
