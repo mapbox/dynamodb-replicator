@@ -15,6 +15,11 @@ function usage() {
     console.error(' - recordkey: the key for the record specified as a JSON object');
 }
 
+if (args.help) {
+    usage();
+    process.exit(0);
+}
+
 var table = args._[0];
 
 if (!table) {
