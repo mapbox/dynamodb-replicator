@@ -43,6 +43,10 @@ catch (err) {
     process.exit(1);
 }
 
+// Converts incoming strings in wire or dyno format into dyno format
+try { key = Dyno.deserialize(key); }
+catch (err) { key = JSON.parse(key); }
+
 var primaryConfig = {
     table: args.primary.split('/')[1],
     region: args.primary.split('/')[0]
