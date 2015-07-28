@@ -9,6 +9,7 @@
   "bin": {
     "diff-tables": "bin/diff-tables.js",
     "diff-record": "bin/diff-record.js",
+    "replicate-record": "bin/replicate-record.js",
     "backup-table": "bin/backup-table.js",
     "incremental-backfill": "bin/incremental-backfill.js",
     "incremental-snapshot": "bin/incremental-snapshot.js",
