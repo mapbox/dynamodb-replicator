@@ -50,7 +50,7 @@ dynamodb.test('[s3-backfill]', records, function(assert) {
 
         records.forEach(function(expected) {
             var key = crypto.createHash('md5')
-                .update(JSON.stringify({ id: expected.id }))
+                .update(Dyno.serialize({ id: expected.id }))
                 .digest('hex');
 
             key = [prefix, dynamodb.tableName, key].join('/');
