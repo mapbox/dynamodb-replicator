@@ -59,6 +59,23 @@ $ diff-tables us-east-1/primary eu-west-2/new-replica --backfill --repair
 $ diff-tables us-east-1/primar eu-west-2/replica --repair --segment 0 --segments 10
 ```
 
+### replicate-record
+
+Given two tables and an item's key, this script insures that the replica record is synchronized with its current state in the primary table.
+
+```
+$ npm install -g dynamodb-replicator
+$ replicate-record --help
+
+Usage: replicate-record <primary tableinfo> <replica tableinfo> <recordkey>
+ - primary tableinfo: the primary table to replicate from, specified as `region/tablename`
+ - replica tableinfo: the replica table to replicate to, specified as `region/tablename`
+ - recordkey: the key for the record specified as a JSON object
+
+# Copy the state of a record from the primary to the replica table
+$ replicate-record us-east-1/primary eu-west-1/replica '{"id":"abc"}'
+```
+
 ### backup-table
 
 Scans a table and dumps the entire set of records as a line-delimited JSON file on S3.
