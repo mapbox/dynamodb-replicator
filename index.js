@@ -1,3 +1,4 @@
+require('https').globalAgent.maxSockets = 16;
 var AWS = require('aws-sdk');
 var queue = require('queue-async');
 var streambot = require('streambot');
@@ -38,66 +39,80 @@ function replicate(event, callback) {
     printRemaining(events, true);
 
     var q = queue();
-
+    var batchChanges = [];
     Object.keys(allRecords).forEach(function(key) {
-        var lastChange = allRecords[key].pop();
-        q.defer(processChange, lastChange, replica);
+        batchChanges.push(allRecords[key].pop());
+        if (batchChanges.length === 25) {
+            q.defer(processChange, batchChanges, replica);
+            batchChanges = [];
+        }
     });
+    if (batchChanges.length > 0) q.defer(processChange, batchChanges, replica);
 
     q.awaitAll(callback);
 
-    function processChange(change, replica, next) {
-        var id = JSON.stringify(change.dynamodb.Keys);
-        var hash = crypto.createHash('md5').update(id).digest('hex');
+    function processChange(changes, replica, next) {
+        var requests = { RequestItems:{} };
+        requests.RequestItems[process.env.ReplicaTable] = [];
 
-        if (change.eventName === 'INSERT' || change.eventName === 'MODIFY') {
-            var newItem = (function decodeBuffers(obj) {
-                if (typeof obj !== 'object') return obj;
+        changes.forEach(function(change) {
+            var id = JSON.stringify(change.dynamodb.Keys);
+            var hash = crypto.createHash('md5').update(id).digest('hex');
 
-                return Object.keys(obj).reduce(function(newObj, key) {
-                    var value = obj[key];
+            if (change.eventName === 'INSERT' || change.eventName === 'MODIFY') {
+                var newItem = (function decodeBuffers(obj) {
+                    if (typeof obj !== 'object') return obj;
 
-                    if (key === 'B' && typeof value === 'string')
-                        newObj[key] = new Buffer(value, 'base64');
+                    return Object.keys(obj).reduce(function(newObj, key) {
+                        var value = obj[key];
 
-                    else if (key === 'BS' && Array.isArray(value))
-                        newObj[key] = value.map(function(encoded) {
-                            return new Buffer(encoded, 'base64');
-                        });
+                        if (key === 'B' && typeof value === 'string')
+                            newObj[key] = new Buffer(value, 'base64');
 
-                    else if (Array.isArray(value))
-                        newObj[key] = value.map(decodeBuffers);
+                        else if (key === 'BS' && Array.isArray(value))
+                            newObj[key] = value.map(function(encoded) {
+                                return new Buffer(encoded, 'base64');
+                            });
 
-                    else if (typeof value === 'object')
-                        newObj[key] = decodeBuffers(value);
+                        else if (Array.isArray(value))
+                            newObj[key] = value.map(decodeBuffers);
 
-                    else
-                        newObj[key] = value;
+                        else if (typeof value === 'object')
+                            newObj[key] = decodeBuffers(value);
 
-                    return newObj;
-                }, {});
-            })(change.dynamodb.NewImage);
+                        else
+                            newObj[key] = value;
 
-            replica.putItem({
-                TableName: process.env.ReplicaTable,
-                Item: newItem
-            }, function(err) {
+                        return newObj;
+                    }, {});
+                })(change.dynamodb.NewImage);
+
+                requests.RequestItems[process.env.ReplicaTable].push({
+                    PutRequest: {
+                        Item: newItem
+                    }
+                });
+            } else if (change.eventName === 'REMOVE') {
+                requests.RequestItems[process.env.ReplicaTable].push({
+                    DeleteRequest: {
+                        Key: change.dynamodb.Keys
+                    }
+                });
+            }
+        });
+
+        replica.batchWriteItem(requests, function(err, resp){
                 if (err) return next(err);
-                delete events[hash];
+
+                changes.forEach(function(change){
+                    var id = JSON.stringify(change.dynamodb.Keys);
+                    var hash = crypto.createHash('md5').update(id).digest('hex');
+                    delete events[hash];
+                });
                 printRemaining(events);
                 next();
-            });
-        } else if (change.eventName === 'REMOVE') {
-            replica.deleteItem({
-                TableName: process.env.ReplicaTable,
-                Key: change.dynamodb.Keys
-            }, function(err) {
-                if (err) return next(err);
-                delete events[hash];
-                printRemaining(events);
-                next();
-            });
-        }
+        });
+
     }
 }
 
