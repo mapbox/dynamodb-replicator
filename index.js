@@ -120,7 +120,13 @@ function incrementalBackup(event, callback) {
     var events = {};
     var allRecords = event.Records.reduce(function(allRecords, action) {
         var id = JSON.stringify(action.dynamodb.Keys);
-        var hash = crypto.createHash('md5').update(action.eventName + id).digest('hex');
+        var hash = crypto.createHash('md5')
+            .update([
+                action.eventName,
+                JSON.stringify(action.dynamodb.Keys),
+                JSON.stringify(action.dynamodb.NewImage)
+            ].join(''))
+            .digest('hex');
         events[hash] = { key: id, action: action.eventName };
 
         allRecords[id] = allRecords[id] || [];
@@ -149,8 +155,12 @@ function incrementalBackup(event, callback) {
                 var id = crypto.createHash('md5')
                     .update(JSON.stringify(change.dynamodb.Keys))
                     .digest('hex');
-                var changeId = crypto.createHash('md5')
-                    .update(change.eventName + JSON.stringify(change.dynamodb.Keys))
+                var hash = crypto.createHash('md5')
+                    .update([
+                        change.eventName,
+                        JSON.stringify(change.dynamodb.Keys),
+                        JSON.stringify(change.dynamodb.NewImage)
+                    ].join(''))
                     .digest('hex');
 
                 var table = change.eventSourceARN.split('/')[1];
@@ -165,7 +175,7 @@ function incrementalBackup(event, callback) {
 
                 s3[req](params, function(err) {
                     if (err) return next(err);
-                    delete events[changeId];
+                    delete events[hash];
                     printRemaining(events);
                     next();
                 });
