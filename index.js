@@ -1,4 +1,4 @@
-require('https').globalAgent.maxSockets = 16;
+require('https').globalAgent.maxSockets = Math.ceil(require('os').cpus().length * 16);
 var AWS = require('aws-sdk');
 var queue = require('queue-async');
 var streambot = require('streambot');

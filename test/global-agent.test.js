@@ -3,7 +3,8 @@ var test = require('tape');
 require('..');
 
 test('https globalAgent', function(t) {
-    t.equal(https.globalAgent.maxSockets, 16,
-      'https.globalAgent.maxSockets shoud equal 16. It equals ' + https.globalAgent.maxSockets);
+    var concurrency = Math.ceil(require('os').cpus().length * 16);
+    t.equal(https.globalAgent.maxSockets, concurrency,
+      'https.globalAgent.maxSockets should equal ' + concurrency + '. It equals ' + https.globalAgent.maxSockets);
     t.end();
 });
