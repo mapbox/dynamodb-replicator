@@ -106,14 +106,20 @@ module.exports = function(config, done) {
                 Key: key.toString()
             };
 
-            s3.getObject(params, function(err, data) {
-                getStream.pending--;
-                if (err && err.statusCode !== 404) return next(AwsError(err, params));
-                if (err) log(AwsError(err, params));
-                count++;
-                getStream.push(data.Body + '\n');
-                next();
-            });
+            (function get(attempts) {
+                attempts++;
+
+                s3.getObject(params, function(err, data) {
+                    if (err && err.statusCode > 499 && attempts < 6)
+                        return setTimeout(get, Math.pow(10, attempts), attempts);
+                    getStream.pending--;
+                    if (err && err.statusCode !== 404) return next(AwsError(err, params));
+                    if (err) log(AwsError(err, params));
+                    count++;
+                    getStream.push(data.Body + '\n');
+                    next();
+                });
+            })(0);
         });
 
         callback();
