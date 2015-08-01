@@ -68,15 +68,16 @@ This gives us a system where changes to the primary table are rapidly implemente
 ## Backup and Restore
 
 The library provides scripts for two approaches to backup:
+
 1. A [`backup-table` script](https://github.com/mapbox/dynamodb-replicator/blob/master/bin/backup-table.js) can scan the primary table and write a dump file to S3. Running this script on a regular basis helps build resiliency against data corruption: if corrupt data were located, a trail of past states exists on S3 that can be recovered from.
 
-  [Dyno includes a CLI tool](https://github.com/mapbox/dyno#usage) with an `import` command that can be used to read the backup data back into a table. This can be used to recover an entire database from an dump. Running a restore looks something like:
+2. An incremental backup system involves a Lambda function that reads changes from the primary table's DynamoDB stream and writes each change to a file on S3. The result is an S3 "clone" of the current state of the DynamoDB table where one table record = one S3 object. In a [versioned S3 bucket](http://docs.aws.amazon.com/AmazonS3/latest/dev/Versioning.html), this can proved a complete history of changes made to the table.
+
+  An [`incremental-snapshot` script](https://github.com/mapbox/dynamodb-replicator/blob/master/bin/incremental-snapshot.js) is capable of reading each item in the S3 folder and writing the aggregate to a file, resulting a snapshot of your table's state similar to the direct scan approach.
+
+[Dyno includes a CLI tool](https://github.com/mapbox/dyno#usage) with an `import` command that can be used to read a backup file back into a table. This can be used to recover an entire database from an dump. Running a restore looks something like:
 
   ```sh
   $ npm install -g s3print dyno
   $ s3print s3://my-bucket/my-database-backup | dyno put us-east-1/my-new-database
   ```
-
-2. An incremental backup system involves a Lambda function that reads changes from the primary table's DynamoDB stream and writes each change to a file on S3. The result is an S3 "clone" of the current state of the DynamoDB table where one table record = one S3 object. In a [versioned S3 bucket](http://docs.aws.amazon.com/AmazonS3/latest/dev/Versioning.html), this can proved a complete history of changes made to the table.
-
-  An [`incremental-snapshot` script](https://github.com/mapbox/dynamodb-replicator/blob/master/bin/incremental-snapshot.js) is capable of reading each item in the S3 folder and writing the aggregate to a file, resulting a snapshot of your table's state similar to a direct scan approach. The resulting file can also be consumed using Dyno's CLI tool.
