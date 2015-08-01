@@ -28,7 +28,11 @@ function replicate(event, callback) {
     var events = {};
     var allRecords = event.Records.reduce(function(allRecords, action) {
         var id = JSON.stringify(action.dynamodb.Keys);
-        var hash = crypto.createHash('md5').update(id).digest('hex');
+        var hash = crypto.createHash('md5').update([
+            action.eventName,
+            JSON.stringify(action.dynamodb.Keys),
+            JSON.stringify(action.dynamodb.NewImage)
+        ].join('')).digest('hex');
         events[hash] = { key: id, action: action.eventName };
 
         allRecords[id] = allRecords[id] || [];
