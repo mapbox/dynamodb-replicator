@@ -1,6 +1,6 @@
 {
   "name": "dynamodb-replicator",
-  "version": "6.3.4",
+  "version": "6.3.5",
   "description": "",
   "main": "index.js",
   "scripts": {
