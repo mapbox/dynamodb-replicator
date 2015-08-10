@@ -28,30 +28,32 @@ function replicate(event, callback) {
     var events = {};
     var allRecords = event.Records.reduce(function(allRecords, action) {
         var id = JSON.stringify(action.dynamodb.Keys);
-        var hash = crypto.createHash('md5').update([
-            action.eventName,
-            JSON.stringify(action.dynamodb.Keys),
-            JSON.stringify(action.dynamodb.NewImage)
-        ].join('')).digest('hex');
-        events[hash] = { key: id, action: action.eventName };
-
         allRecords[id] = allRecords[id] || [];
         allRecords[id].push(action);
         return allRecords;
     }, {});
 
-    printRemaining(events, true);
-
     var q = queue();
     var batchChanges = [];
     Object.keys(allRecords).forEach(function(key) {
-        batchChanges.push(allRecords[key].pop());
+        var change = allRecords[key].pop();
+
+        var hash = crypto.createHash('md5').update([
+            change.eventName,
+            JSON.stringify(change.dynamodb.Keys),
+            JSON.stringify(change.dynamodb.NewImage)
+        ].join('')).digest('hex');
+        events[hash] = { key: key, action: change.eventName };
+
+        batchChanges.push(change);
         if (batchChanges.length === 25) {
             q.defer(processChange, batchChanges, replica);
             batchChanges = [];
         }
     });
     if (batchChanges.length > 0) q.defer(processChange, batchChanges, replica);
+    
+    printRemaining(events, true);
 
     q.awaitAll(callback);
 
@@ -61,7 +63,6 @@ function replicate(event, callback) {
 
         changes.forEach(function(change) {
             var id = JSON.stringify(change.dynamodb.Keys);
-            var hash = crypto.createHash('md5').update(id).digest('hex');
 
             if (change.eventName === 'INSERT' || change.eventName === 'MODIFY') {
                 var newItem = (function decodeBuffers(obj) {
@@ -110,7 +111,11 @@ function replicate(event, callback) {
 
                 changes.forEach(function(change){
                     var id = JSON.stringify(change.dynamodb.Keys);
-                    var hash = crypto.createHash('md5').update(id).digest('hex');
+                    var hash = crypto.createHash('md5').update([
+                        change.eventName,
+                        JSON.stringify(change.dynamodb.Keys),
+                        JSON.stringify(change.dynamodb.NewImage)
+                    ].join('')).digest('hex');
                     delete events[hash];
                 });
                 printRemaining(events);
