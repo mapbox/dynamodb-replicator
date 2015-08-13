@@ -27,6 +27,7 @@
   },
   "homepage": "https://github.com/mapbox/dynamodb-replicator",
   "dependencies": {
+    "agentkeepalive": "^2.0.3",
     "aws-sdk": "^2.1.24",
     "dyno": "~0.15.0",
     "event-stream": "^3.2.2",

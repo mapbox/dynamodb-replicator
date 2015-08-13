@@ -1,9 +1,8 @@
-require('https').globalAgent.maxSockets = Math.ceil(require('os').cpus().length * 16);
+var AgentKeepAlive = require('agentkeepalive');
 var AWS = require('aws-sdk');
 var queue = require('queue-async');
 var streambot = require('streambot');
 var crypto = require('crypto');
-var s3 = new AWS.S3();
 
 module.exports.replicate = replicate;
 module.exports.streambotReplicate = streambot(replicate);
@@ -21,7 +20,18 @@ function printRemaining(events, first) {
 }
 
 function replicate(event, callback) {
-    var replicaConfig = { region: process.env.ReplicaRegion };
+    var replicaConfig = {
+        region: process.env.ReplicaRegion,
+        maxRetries: 1000,
+        httpOptions: {
+            timeout: 500,
+            agent: new AgentKeepAlive.HttpsAgent({
+                keepAlive: true,
+                maxSockets: Math.ceil(require('os').cpus().length * 16),
+                keepAliveTimeout: 60000
+            })
+        }
+    };
     if (process.env.ReplicaEndpoint) replicaConfig.endpoint = process.env.ReplicaEndpoint;
     var replica = new AWS.DynamoDB(replicaConfig);
 
@@ -52,7 +62,7 @@ function replicate(event, callback) {
         }
     });
     if (batchChanges.length > 0) q.defer(processChange, batchChanges, replica);
-    
+
     printRemaining(events, true);
 
     q.awaitAll(callback);
@@ -121,7 +131,6 @@ function replicate(event, callback) {
                 printRemaining(events);
                 next();
         });
-
     }
 }
 
@@ -142,6 +151,18 @@ function incrementalBackup(event, callback) {
         allRecords[id].push(action);
         return allRecords;
     }, {});
+
+    var s3 = new AWS.S3({
+        maxRetries: 1000,
+        httpOptions: {
+            timeout: 1000,
+            agent: new AgentKeepAlive.HttpsAgent({
+                keepAlive: true,
+                maxSockets: Math.ceil(require('os').cpus().length * 16),
+                keepAliveTimeout: 60000
+            })
+        }
+    });
 
     printRemaining(events, true);
 

@@ -12,6 +12,8 @@ var crypto = require('crypto');
 var AWS = require('aws-sdk');
 var s3 = new AWS.S3();
 var queue = require('queue-async');
+var AgentKeepAlive = require('agentkeepalive');
+var HttpsAgent = AgentKeepAlive.HttpsAgent;
 
 replica.start();
 
@@ -29,6 +31,11 @@ process.env.ReplicaEndpoint = 'http://localhost:4567';
 process.env.AWS_ACCESS_KEY_ID = 'mock';
 process.env.AWS_SECRET_ACCESS_KEY = 'mock';
 process.env.BackupBucket = 'mapbox';
+
+test('[agent] use http agent for replication tests', function(assert) {
+    AgentKeepAlive.HttpsAgent = require('http').Agent;
+    assert.end();
+});
 
 replica.test('[replicate] insert', function(assert) {
     var event = require(path.join(events, 'insert.json'));
@@ -119,6 +126,11 @@ replica.test('[lambda] insert with buffers', function(assert) {
             assert.end();
         });
     });
+});
+
+test('[agent] return agent to normal', function(assert) {
+    AgentKeepAlive.HttpsAgent = HttpsAgent;
+    assert.end();
 });
 
 test('[incremental backup] insert', function(assert) {
