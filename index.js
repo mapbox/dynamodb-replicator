@@ -1,4 +1,3 @@
-var AgentKeepAlive = require('agentkeepalive');
 var AWS = require('aws-sdk');
 var queue = require('queue-async');
 var streambot = require('streambot');
@@ -25,11 +24,7 @@ function replicate(event, callback) {
         maxRetries: 1000,
         httpOptions: {
             timeout: 500,
-            agent: new AgentKeepAlive.HttpsAgent({
-                keepAlive: true,
-                maxSockets: Math.ceil(require('os').cpus().length * 16),
-                keepAliveTimeout: 60000
-            })
+            agent: streambot.agent
         }
     };
     if (process.env.ReplicaEndpoint) replicaConfig.endpoint = process.env.ReplicaEndpoint;
@@ -156,11 +151,7 @@ function incrementalBackup(event, callback) {
         maxRetries: 1000,
         httpOptions: {
             timeout: 1000,
-            agent: new AgentKeepAlive.HttpsAgent({
-                keepAlive: true,
-                maxSockets: Math.ceil(require('os').cpus().length * 16),
-                keepAliveTimeout: 60000
-            })
+            agent: streambot.agent
         }
     });
 

@@ -1,4 +1,6 @@
 var test = require('tape');
+var streambot = require('streambot');
+var HttpsAgent = streambot.agent;
 var tableDef = require('./fixtures/table');
 var DynamoDB = require('dynamodb-test');
 var replica = DynamoDB(test, 'mapbox-replicator', tableDef);
@@ -12,8 +14,6 @@ var crypto = require('crypto');
 var AWS = require('aws-sdk');
 var s3 = new AWS.S3();
 var queue = require('queue-async');
-var AgentKeepAlive = require('agentkeepalive');
-var HttpsAgent = AgentKeepAlive.HttpsAgent;
 
 replica.start();
 
@@ -33,7 +33,7 @@ process.env.AWS_SECRET_ACCESS_KEY = 'mock';
 process.env.BackupBucket = 'mapbox';
 
 test('[agent] use http agent for replication tests', function(assert) {
-    AgentKeepAlive.HttpsAgent = require('http').Agent;
+    streambot.agent = require('http').globalAgent;
     assert.end();
 });
 
@@ -129,7 +129,7 @@ replica.test('[lambda] insert with buffers', function(assert) {
 });
 
 test('[agent] return agent to normal', function(assert) {
-    AgentKeepAlive.HttpsAgent = HttpsAgent;
+    streambot.agent = HttpsAgent;
     assert.end();
 });
 
