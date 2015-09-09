@@ -103,6 +103,7 @@ function replicate(event, callback) {
                     }
                 });
             } else if (change.eventName === 'REMOVE') {
+                console.log('change keys', change.dynamodb.Keys);
                 requests.RequestItems[process.env.ReplicaTable].push({
                     DeleteRequest: {
                         Key: change.dynamodb.Keys
