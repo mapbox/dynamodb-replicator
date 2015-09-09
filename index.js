@@ -2,6 +2,7 @@ var AWS = require('aws-sdk');
 var queue = require('queue-async');
 var streambot = require('streambot');
 var crypto = require('crypto');
+var util = require('util');
 
 module.exports.replicate = replicate;
 module.exports.streambotReplicate = streambot(replicate);
@@ -67,7 +68,8 @@ function replicate(event, callback) {
         requests.RequestItems[process.env.ReplicaTable] = [];
 
         changes.forEach(function(change) {
-            var id = JSON.stringify(change.dynamodb.Keys);
+            util.inspect('change keys', change);
+            if (['sprites', 'styles', 'tilestats'].indexOf(change.dynamodb.Keys.collection.S.split(':')[0]) !== -1) return;
 
             if (change.eventName === 'INSERT' || change.eventName === 'MODIFY') {
                 var newItem = (function decodeBuffers(obj) {
@@ -103,14 +105,18 @@ function replicate(event, callback) {
                     }
                 });
             } else if (change.eventName === 'REMOVE') {
-                console.log('change keys', change.dynamodb.Keys);
                 requests.RequestItems[process.env.ReplicaTable].push({
                     DeleteRequest: {
-                        Key: change.dynamodb.Keys
+                        Key: {
+                            id: change.dynamodb.Keys.id
+                        }
                     }
                 });
             }
         });
+
+        util.inspect('requests', requests);
+        if (!requests.RequestItems[process.env.ReplicaTable].length) return next();
 
         replica.batchWriteItem(requests, function(err, resp){
                 if (err) return next(err);
