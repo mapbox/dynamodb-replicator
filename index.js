@@ -69,7 +69,7 @@ function replicate(event, callback) {
 
         changes.forEach(function(change) {
             util.inspect('change keys', change);
-            if (['sprites', 'styles', 'tilestats'].indexOf(change.dynamodb.Keys.collection.S.split(':')[0]) !== -1) return;
+            if (change.dynamodb.Keys.collection.S.split(':')[0] !== 'uploads') return;
 
             if (change.eventName === 'INSERT' || change.eventName === 'MODIFY') {
                 var newItem = (function decodeBuffers(obj) {
