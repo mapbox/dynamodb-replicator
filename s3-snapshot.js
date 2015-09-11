@@ -1,6 +1,5 @@
 var AWS = require('aws-sdk');
 var streambot = require('streambot');
-var s3 = new AWS.S3({ httpOptions: { agent: streambot.agent } });
 var s3scan = require('s3scan');
 var queue = require('queue-async');
 var zlib = require('zlib');
@@ -15,11 +14,19 @@ module.exports = function(config, done) {
     if (!config.destination || !config.destination.bucket || !config.destination.key)
         return done(new Error('Must provide destination bucket and key where the snapshot will be put'));
 
+    var s3Options = {
+        httpOptions: { agent: streambot.agent }
+    };
+    if (config.maxRetries) s3Options.maxRetries = config.maxRetries;
+    if (config.logger) s3Options.logger = config.logger;
+
+    var s3 = new AWS.S3(s3Options);
+
     var size = 0;
     var uri = ['s3:/', config.source.bucket, config.source.prefix].join('/');
     var partsLoaded = -1;
 
-    var objStream = s3scan.Scan(uri, streambot.agent)
+    var objStream = s3scan.Scan(uri, { s3: s3 })
         .on('error', function(err) { done(err); });
     var gzip = zlib.createGzip()
         .on('error', function(err) { done(err); });

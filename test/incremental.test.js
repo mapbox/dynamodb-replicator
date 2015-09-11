@@ -7,6 +7,9 @@ var dynamodb = require('dynamodb-test')(test, 's3-backfill', tableDef);
 var Dyno = require('dyno');
 var queue = require('queue-async');
 var zlib = require('zlib');
+var path = require('path');
+var os = require('os');
+var fs = require('fs');
 
 var backfill = require('../s3-backfill');
 var snapshot = require('../s3-snapshot');
@@ -77,6 +80,7 @@ dynamodb.test('[s3-backfill]', records, function(assert) {
 
 test('[s3-snapshot]', function(assert) {
     var snapshotKey = [prefix, dynamodb.tableName, 'snapshot'].join('/');
+    var log = path.join(os.tmpdir(), crypto.randomBytes(16).toString('hex'));
 
     var config = {
         source: {
@@ -86,7 +90,8 @@ test('[s3-snapshot]', function(assert) {
         destination: {
             bucket: bucket,
             key: snapshotKey
-        }
+        },
+        logger: fs.createWriteStream(log)
     };
 
     snapshot(config, function(err, details) {
@@ -125,9 +130,18 @@ test('[s3-snapshot]', function(assert) {
         found.forEach(function(item) {
             var id = item.id.S;
             var original = expected[id];
-            // assert.equal(JSON.stringify(item), original, 'expected item in snapshot ' + id);
+            assert.equal(JSON.stringify(item), original, 'expected item in snapshot ' + id);
         });
-        assert.end();
+        checkLog();
+    }
+
+    function checkLog() {
+        fs.readFile(log, 'utf8', function(err, data) {
+            assert.ifError(err, 'log file was written');
+            console.log(data);
+            assert.ok(data.length, 'has logs in it');
+            assert.end();
+        });
     }
 });
 
