@@ -5,12 +5,16 @@ var args = require('minimist')(process.argv.slice(2));
 var s3urls = require('s3urls');
 var fastlog = require('fastlog');
 var snapshot = require('../s3-snapshot');
+var fs = require('fs');
+var path = require('path');
 
 function usage() {
     console.error('');
     console.error('Usage: incremental-snapshot <source> <dest>');
     console.error('');
     console.error('Options:');
+    console.error('  --logger     filename where detailed log messages should be sent');
+    console.error('  --retries    number of times that failed S3 requests should be retried');
     console.error('  --metric     cloudwatch metric region/namespace/tablename. Will provide dimension TableName = the tablename.');
 }
 
@@ -23,7 +27,7 @@ var source = s3urls.fromUrl(args._[0]);
 var dest = s3urls.fromUrl(args._[1]);
 
 if (!source || !dest) {
-    console.lerror('Must provide source and destination S3 locations');
+    console.error('Must provide source and destination S3 locations');
     usage();
     process.exit(1);
 }
@@ -41,6 +45,11 @@ var config = {
         key: dest.Key
     }
 };
+
+if (args.logger)
+    config.logger = fs.createWriteStream(path.resolve(args.logger), { flags: 'a' });
+if (args.retries)
+    config.maxRetries = args.retries;
 
 snapshot(config, function(err, details) {
     if (err) log.error(err);
