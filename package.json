@@ -46,6 +46,7 @@
   "devDependencies": {
     "dynalite": "^0.5.2",
     "dynamodb-test": "^0.1.0",
+    "eslint": "^1.5.0",
     "tape": "^4.0.0"
   }
 }
