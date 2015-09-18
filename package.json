@@ -14,6 +14,7 @@
     "incremental-backfill": "bin/incremental-backfill.js",
     "incremental-snapshot": "bin/incremental-snapshot.js",
     "incremental-backup-record": "bin/incremental-backup-record.js",
+    "incremental-record-history": "bin/incremental-record-history.js",
     "incremental-diff-record": "bin/incremental-diff-record.js"
   },
   "repository": {

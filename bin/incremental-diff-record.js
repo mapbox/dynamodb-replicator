@@ -52,6 +52,13 @@ if (!key) {
   process.exit(1);
 }
 
+// Sort the attributes in the provided key
+key = JSON.parse(key);
+key = JSON.stringify(Object.keys(key).sort().reduce(function(keyObj, attr) {
+  keyObj[attr] = key[attr];
+  return keyObj;
+}, {}));
+
 // Converts incoming strings in wire or dyno format into dyno format
 try { key = Dyno.deserialize(key); }
 catch (err) { key = JSON.parse(key); }
@@ -81,7 +88,7 @@ dyno.getItem(key, function(err, dynamoRecord) {
       console.log(dynamoRecord);
       console.log('');
 
-      console.log('Incremental backup record');
+      console.log('Incremental backup record (%s)', s3url.Key);
       console.log('--------------');
       console.log(s3data);
       console.log('');
