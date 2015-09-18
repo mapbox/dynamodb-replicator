@@ -4,6 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
+    "pretest": "eslint *.js bin/*.js test/*.js",
     "test": "tape test/*.test.js"
   },
   "bin": {

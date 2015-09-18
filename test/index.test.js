@@ -82,7 +82,7 @@ replica.test('[replicate] adjust many', function(assert) {
 
             var expected = [
                 { range: 22, id: 'record-2' },
-                { range: 33, id: 'record-3' },
+                { range: 33, id: 'record-3' }
             ];
 
             data = data.map(Dyno.serialize);
@@ -202,7 +202,7 @@ test('[incremental backup] insert, modify & delete', function(assert) {
         s3.getObject({
             Bucket: process.env.BackupBucket,
             Key: [process.env.BackupPrefix, table, id].join('/')
-        }, function(err, data) {
+        }, function(err) {
             assert.equal(err.code, 'NoSuchKey', 'object was deleted');
             assert.end();
         });
@@ -254,7 +254,7 @@ test('[incremental backup] adjust many', function(assert) {
             s3.getObject({
                 Bucket: process.env.BackupBucket,
                 Key: [process.env.BackupPrefix, table, id].join('/')
-            }, function(err, data) {
+            }, function(err) {
                 assert.equal(err.code, 'NoSuchKey', 'object was deleted');
                 next();
             });

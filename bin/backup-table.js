@@ -1,6 +1,5 @@
 #!/usr/bin/env node
 
-var fs = require('fs');
 var backup = require('../backup');
 var fastlog = require('fastlog');
 var args = require('minimist')(process.argv.slice(2));
@@ -47,7 +46,6 @@ s3url = s3urls.fromUrl(s3url);
 var jobid = args.jobid || crypto.randomBytes(8).toString('hex');
 var format = '[${timestamp}] [${level}] [${category}] [' + jobid + ']';
 var log = fastlog('backup-table', 'info', format);
-var index = !isNaN(parseInt(args.segment)) ? args.segment.toString() : 0;
 
 var config = {
     region: table[0],

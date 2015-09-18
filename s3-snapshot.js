@@ -1,7 +1,6 @@
 var AWS = require('aws-sdk');
 var streambot = require('streambot');
 var s3scan = require('s3scan');
-var queue = require('queue-async');
 var zlib = require('zlib');
 var stream = require('stream');
 
@@ -63,7 +62,7 @@ module.exports = function(config, done) {
 
     objStream.pipe(stringify).pipe(gzip);
 
-    upload.send(function(err, data) {
+    upload.send(function(err) {
         if (err) return done(err);
 
         log('Uploaded snapshot to %s', uri);

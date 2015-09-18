@@ -2,7 +2,6 @@ var test = require('tape');
 var setup = require('./setup')(process.env.LIVE_TEST);
 var diff = require('../diff');
 var _ = require('underscore');
-var fs = require('fs');
 var util = require('util');
 
 var config = _(setup.config).clone();

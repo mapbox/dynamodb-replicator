@@ -1,4 +1,3 @@
-var test = require('tape');
 var queue = require('queue-async');
 var crypto = require('crypto');
 var Dynalite = require('dynalite');
@@ -70,7 +69,7 @@ module.exports = function(live) {
                 q.defer(dynos.replica.putItem, i);
             });
 
-            q.awaitAll(function(err, resp) {
+            q.awaitAll(function(err) {
                 assert.notOk(err, 'no error creating tables');
                 assert.end();
             });
@@ -82,7 +81,7 @@ module.exports = function(live) {
         function generate() {
             var items = [];
             var data;
-            itemsize = 1024;
+            var itemsize = 1024;
 
             for (var i = 0; i < n; i++) {
                 data = '';
@@ -131,31 +130,31 @@ module.exports = function(live) {
 
 var table = function(tableName) {
     return {
-        "AttributeDefinitions": [
+        AttributeDefinitions: [
             {
-                "AttributeName": "hash",
-                "AttributeType": "S"
+                AttributeName: 'hash',
+                AttributeType: 'S'
             },
             {
-                "AttributeName": "range",
-                "AttributeType": "S"
+                AttributeName: 'range',
+                AttributeType: 'S'
             }
         ],
-        "KeySchema": [
+        KeySchema: [
             {
-                "AttributeName": "hash",
-                "KeyType": "HASH"
+                AttributeName: 'hash',
+                KeyType: 'HASH'
             },
             {
-                "AttributeName": "range",
-                "KeyType": "RANGE"
+                AttributeName: 'range',
+                KeyType: 'RANGE'
             }
         ],
-        "ProvisionedThroughput": {
-            "ReadCapacityUnits": 10,
-            "WriteCapacityUnits": 10
+        ProvisionedThroughput: {
+            ReadCapacityUnits: 10,
+            WriteCapacityUnits: 10
         },
-        "TableName": tableName
+        TableName: tableName
     };
 };
 

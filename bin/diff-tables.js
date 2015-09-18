@@ -1,9 +1,6 @@
 #!/usr/bin/env node
 
-var fs = require('fs');
 var diff = require('../diff');
-var split = require('split');
-var queue = require('queue-async');
 var fastlog = require('fastlog');
 var args = require('minimist')(process.argv.slice(2));
 var crypto = require('crypto');
@@ -62,7 +59,7 @@ var config = {
     log: log.info
 };
 
-diff(config, function(err, discrepancies) {
+diff(config, function(err) {
     if (err) {
         log.error(err);
         process.exit(1);

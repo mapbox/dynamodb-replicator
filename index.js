@@ -67,8 +67,6 @@ function replicate(event, callback) {
         requests.RequestItems[process.env.ReplicaTable] = [];
 
         changes.forEach(function(change) {
-            var id = JSON.stringify(change.dynamodb.Keys);
-
             if (change.eventName === 'INSERT' || change.eventName === 'MODIFY') {
                 var newItem = (function decodeBuffers(obj) {
                     if (typeof obj !== 'object') return obj;
@@ -111,20 +109,19 @@ function replicate(event, callback) {
             }
         });
 
-        replica.batchWriteItem(requests, function(err, resp){
-                if (err) return next(err);
+        replica.batchWriteItem(requests, function(err){
+            if (err) return next(err);
 
-                changes.forEach(function(change){
-                    var id = JSON.stringify(change.dynamodb.Keys);
-                    var hash = crypto.createHash('md5').update([
-                        change.eventName,
-                        JSON.stringify(change.dynamodb.Keys),
-                        JSON.stringify(change.dynamodb.NewImage)
-                    ].join('')).digest('hex');
-                    delete events[hash];
-                });
-                printRemaining(events);
-                next();
+            changes.forEach(function(change){
+                var hash = crypto.createHash('md5').update([
+                    change.eventName,
+                    JSON.stringify(change.dynamodb.Keys),
+                    JSON.stringify(change.dynamodb.NewImage)
+                ].join('')).digest('hex');
+                delete events[hash];
+            });
+            printRemaining(events);
+            next();
         });
     }
 }

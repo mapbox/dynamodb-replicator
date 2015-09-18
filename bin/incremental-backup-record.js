@@ -46,9 +46,9 @@ process.env.BackupPrefix = s3url.Key;
 var key = args._[2];
 
 if (!key) {
-  console.error('Must provide a record key');
-  usage();
-  process.exit(1);
+    console.error('Must provide a record key');
+    usage();
+    process.exit(1);
 }
 
 // Converts incoming strings in wire or dyno format into dyno format
@@ -56,27 +56,27 @@ try { key = Dyno.deserialize(key); }
 catch (err) { key = JSON.parse(key); }
 
 var dyno = Dyno({
-  region: region,
-  table: table
+    region: region,
+    table: table
 });
 
 dyno.getItem(key, function(err, data) {
-  if (err) throw err;
-
-  var event = {
-    Records: [
-      {
-        dynamodb: {
-          Keys: JSON.parse(Dyno.serialize(key)),
-          NewImage: data ? JSON.parse(Dyno.serialize(data)) : undefined
-        },
-        eventSourceARN: '/' + table,
-        eventName: data ? 'INSERT' : 'REMOVE'
-      }
-    ]
-  };
-
-  backup(event, function(err) {
     if (err) throw err;
-  });
+
+    var event = {
+        Records: [
+            {
+                dynamodb: {
+                    Keys: JSON.parse(Dyno.serialize(key)),
+                    NewImage: data ? JSON.parse(Dyno.serialize(data)) : undefined
+                },
+                eventSourceARN: '/' + table,
+                eventName: data ? 'INSERT' : 'REMOVE'
+            }
+        ]
+    };
+
+    backup(event, function(err) {
+        if (err) throw err;
+    });
 });

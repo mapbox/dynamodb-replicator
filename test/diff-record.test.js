@@ -14,7 +14,7 @@ test('diff-record', function(assert) {
                 'local/' + setup.config.replica.table,
                 '\'{"hash":"hash1","range":"range2"}\''
             ].join(' ');
-            exec(cmd, function(err, stdout, stderr) {
+            exec(cmd, function(err, stdout) {
                 assert.ifError(err, '[different] does not error');
                 assert.ok(/✘/.test(stdout), '[different] reports difference');
                 next();
@@ -27,7 +27,7 @@ test('diff-record', function(assert) {
                 'local/' + setup.config.replica.table,
                 '\'{"hash":"hash1","range":"range4"}\''
             ].join(' ');
-            exec(cmd, function(err, stdout, stderr) {
+            exec(cmd, function(err, stdout) {
                 assert.ifError(err, '[equivalent] does not error');
                 assert.ok(/✔/.test(stdout), '[equivalent] reports equivalence');
                 next();
