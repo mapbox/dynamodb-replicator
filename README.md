@@ -142,7 +142,7 @@ Checks for consistency between a DynamoDB record and its backed-up version on S3
 
 ```
 $ npm install -g dynamodb-replicator
-$ bin/incremental-diff-record.js --help
+$ incremental-diff-record --help
 
 Usage: incremental-diff-record <tableinfo> <s3url> <recordkey>
  - tableinfo: the table where the record lives, specified as `region/tablename`
@@ -150,7 +150,7 @@ Usage: incremental-diff-record <tableinfo> <s3url> <recordkey>
  - recordkey: the key for the record specified as a JSON object
 
 # Check that a record is up-to-date in the incremental backup
-$ incremental-diff-record us-east-1/primary s3://dynamodb-backups/incremental/primary '{"id":"abc"}'
+$ incremental-diff-record us-east-1/primary s3://dynamodb-backups/incremental '{"id":"abc"}'
 ```
 
 ### incremental-backup-record
@@ -159,7 +159,7 @@ Copies a DynamoDB record's present state to an incremental backup folder on S3.
 
 ```
 $ npm install -g dynamodb-replicator
-$ bin/incremental-backup-record.js --help
+$ incremental-backup-record --help
 
 Usage: incremental-backup-record <tableinfo> <s3url> <recordkey>
  - tableinfo: the table to backup from, specified as `region/tablename`
@@ -167,5 +167,21 @@ Usage: incremental-backup-record <tableinfo> <s3url> <recordkey>
  - recordkey: the key for the record specified as a JSON object
 
 # Backup a single record to S3
-$ incremental-backup-record us-east-1/primary s3://dynamodb-backups/incremental/primary '{"id":"abc"}'
+$ incremental-backup-record us-east-1/primary s3://dynamodb-backups/incremental '{"id":"abc"}'
+```
+
+### incremental-record-history
+
+Prints each version of a record that is available in an incremental backup folder on S3.
+
+```
+$ incremental-record-history --help
+
+Usage: incremental-record-history <tableinfo> <s3url> <recordkey>
+ - tableinfo: the table where the record lives, specified as `region/tablename`
+ - s3url: s3 folder where the incremental backups live. Table name will be appended
+ - recordkey: the key for the record specified as a JSON object
+ 
+# Read the history of a single record
+$ incremental-record-history us-east-1/my-table s3://dynamodb-backups/incremental '{"id":"abc"}'
 ```
