@@ -28,6 +28,7 @@ module.exports = function(config, done) {
         var writer = new stream.Writable({ objectMode: true, highWaterMark: 1000 });
 
         writer.queue = queue();
+        writer.queue.awaitAll(function(err) { if (err) done(err); });
         writer.pending = 0;
 
         writer._write = function(record, enc, callback) {
