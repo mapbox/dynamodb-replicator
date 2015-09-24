@@ -1,9 +1,12 @@
-var concurrency = Math.ceil(require('os').cpus().length * 16);
-require('https').globalAgent.maxSockets = concurrency;
-
 var Dyno = require('dyno');
 var AWS = require('aws-sdk');
-var s3 = new AWS.S3();
+var s3 = new AWS.S3({
+    maxRetries: 1000,
+    httpOptions: {
+        timeout: 1000,
+        agent: require('streambot').agent
+    }
+});
 var stream = require('stream');
 var queue = require('queue-async');
 var crypto = require('crypto');
