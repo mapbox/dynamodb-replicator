@@ -144,13 +144,17 @@ function incrementalBackup(event, callback) {
         return allRecords;
     }, {});
 
-    var s3 = new AWS.S3({
+    var params = {
         maxRetries: 1000,
         httpOptions: {
             timeout: 1000,
             agent: streambot.agent
         }
-    });
+    };
+
+    if (process.env.BackupRegion) params.region = process.env.BackupRegion;
+
+    var s3 = new AWS.S3(params);
 
     printRemaining(events, true);
 
