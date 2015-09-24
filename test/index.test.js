@@ -133,6 +133,22 @@ test('[agent] return agent to normal', function(assert) {
     assert.end();
 });
 
+test('[incremental backup] configurable region', function(assert) {
+    process.env.BackupRegion = 'fake';
+    assert.plan(2);
+
+    var S3 = AWS.S3;
+    AWS.S3 = function(config) {
+        assert.equal(config.region, 'fake', 'configured region on S3 client');
+    };
+
+    backup({ Records: [] }, function(err) {
+        assert.ifError(err, 'backup success');
+        AWS.S3 = S3;
+        delete process.env.BackupRegion;
+    });
+});
+
 test('[incremental backup] insert', function(assert) {
     process.env.BackupPrefix = 'dynamodb-replicator/test/' + crypto.randomBytes(4).toString('hex');
 
