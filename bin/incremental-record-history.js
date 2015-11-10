@@ -99,6 +99,10 @@ q.awaitAll(function(err, results) {
                     Key: s3url.Key,
                     VersionId: version.VersionId
                 }, function(err, data) {
+                    if (err && err.name === 'InvalidObjectState') return next(null, {
+                        date: new Date(version.LastModified),
+                        data: 'Version archived: ' + version.VersionId
+                    });
                     if (err) return next(err);
                     next(null, {
                         date: new Date(version.LastModified),
