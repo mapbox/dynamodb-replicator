@@ -43,7 +43,7 @@ replica.test('[replicate] insert', function(assert) {
         assert.ifError(err, 'success');
         dyno.scan(function(err, data) {
             if (err) throw err;
-            assert.deepEqual(data, [{ range: 1, id: 'record-1' }], 'inserted desired record');
+            assert.deepEqual(data, { Count: 1, Items: [{ id: 'record-1', range: 1 }], ScannedCount: 1 }, 'inserted desired record');
             assert.end();
         });
     });
@@ -55,7 +55,7 @@ replica.test('[replicate] insert & modify', function(assert) {
         assert.ifError(err, 'success');
         dyno.scan(function(err, data) {
             if (err) throw err;
-            assert.deepEqual(data, [{ range: 2, id: 'record-1' }], 'inserted & modified desired record');
+            assert.deepEqual(data, { Count: 1, Items: [{ id: 'record-1', range: 2 }], ScannedCount: 1 }, 'inserted & modified desired record');
             assert.end();
         });
     });
@@ -67,7 +67,7 @@ replica.test('[replicate] insert, modify & delete', function(assert) {
         assert.ifError(err, 'success');
         dyno.scan(function(err, data) {
             if (err) throw err;
-            assert.deepEqual(data, [], 'inserted, modified, and deleted desired record');
+            assert.deepEqual(data, { Count: 0, Items: [], ScannedCount: 0 }, 'inserted, modified, and deleted desired record');
             assert.end();
         });
     });
@@ -85,7 +85,7 @@ replica.test('[replicate] adjust many', function(assert) {
                 { range: 33, id: 'record-3' }
             ];
 
-            data = data.map(Dyno.serialize);
+            data = data.Items.map(Dyno.serialize);
             expected = expected.map(Dyno.serialize);
 
             assert.equal(
@@ -115,7 +115,7 @@ replica.test('[lambda] insert with buffers', function(assert) {
                 bufferSet: Dyno.createSet([new Buffer('hello')], 'B')
             };
 
-            data = data[0];
+            data = data.Items[0];
 
             assert.equal(data.range, expected.range, 'expected range');
             assert.equal(data.id, expected.id, 'expected id');

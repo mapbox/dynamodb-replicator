@@ -1,4 +1,5 @@
 var AWS = require('aws-sdk');
+var Dyno = require('dyno');
 var queue = require('queue-async');
 var streambot = require('streambot');
 var crypto = require('crypto');
@@ -20,6 +21,7 @@ function printRemaining(events, first) {
 
 function replicate(event, callback) {
     var replicaConfig = {
+        table: process.env.ReplicaTable,
         region: process.env.ReplicaRegion,
         maxRetries: 1000,
         httpOptions: {
@@ -28,102 +30,62 @@ function replicate(event, callback) {
         }
     };
     if (process.env.ReplicaEndpoint) replicaConfig.endpoint = process.env.ReplicaEndpoint;
-    var replica = new AWS.DynamoDB(replicaConfig);
+    var replica = new Dyno(replicaConfig);
 
-    var events = {};
-    var allRecords = event.Records.reduce(function(allRecords, action) {
-        var id = JSON.stringify(action.dynamodb.Keys);
+    var allRecords = event.Records.reduce(function(allRecords, change) {
+        var id = JSON.stringify(change.dynamodb.Keys);
         allRecords[id] = allRecords[id] || [];
-        allRecords[id].push(action);
+        allRecords[id].push(change);
         return allRecords;
     }, {});
 
-    var q = queue();
-    var batchChanges = [];
-    Object.keys(allRecords).forEach(function(key) {
+    var params = { RequestItems: {} };
+    params.RequestItems[process.env.ReplicaTable] = Object.keys(allRecords).map(function(key) {
         var change = allRecords[key].pop();
-
-        var hash = crypto.createHash('md5').update([
-            change.eventName,
-            JSON.stringify(change.dynamodb.Keys),
-            JSON.stringify(change.dynamodb.NewImage)
-        ].join('')).digest('hex');
-        events[hash] = { key: key, action: change.eventName };
-
-        batchChanges.push(change);
-        if (batchChanges.length === 25) {
-            q.defer(processChange, batchChanges, replica);
-            batchChanges = [];
+        if (change.eventName === 'INSERT' || change.eventName === 'MODIFY') {
+            return {
+                PutRequest: { Item: Dyno.deserialize(JSON.stringify(change.dynamodb.NewImage)) }
+            };
+        } else if (change.eventName === 'REMOVE') {
+            return {
+                DeleteRequest: { Key: Dyno.deserialize(JSON.stringify(change.dynamodb.Keys)) }
+            }
         }
     });
-    if (batchChanges.length > 0) q.defer(processChange, batchChanges, replica);
 
-    printRemaining(events, true);
-
-    q.awaitAll(callback);
-
-    function processChange(changes, replica, next) {
-        var requests = { RequestItems:{} };
-        requests.RequestItems[process.env.ReplicaTable] = [];
-
-        changes.forEach(function(change) {
-            if (change.eventName === 'INSERT' || change.eventName === 'MODIFY') {
-                var newItem = (function decodeBuffers(obj) {
-                    if (typeof obj !== 'object') return obj;
-
-                    return Object.keys(obj).reduce(function(newObj, key) {
-                        var value = obj[key];
-
-                        if (key === 'B' && typeof value === 'string')
-                            newObj[key] = new Buffer(value, 'base64');
-
-                        else if (key === 'BS' && Array.isArray(value))
-                            newObj[key] = value.map(function(encoded) {
-                                return new Buffer(encoded, 'base64');
-                            });
-
-                        else if (Array.isArray(value))
-                            newObj[key] = value.map(decodeBuffers);
-
-                        else if (typeof value === 'object')
-                            newObj[key] = decodeBuffers(value);
-
-                        else
-                            newObj[key] = value;
-
-                        return newObj;
-                    }, {});
-                })(change.dynamodb.NewImage);
-
-                requests.RequestItems[process.env.ReplicaTable].push({
-                    PutRequest: {
-                        Item: newItem
-                    }
-                });
-            } else if (change.eventName === 'REMOVE') {
-                requests.RequestItems[process.env.ReplicaTable].push({
-                    DeleteRequest: {
-                        Key: change.dynamodb.Keys
-                    }
-                });
-            }
-        });
-
-        replica.batchWriteItem(requests, function(err){
-            if (err) return next(err);
-
-            changes.forEach(function(change){
-                var hash = crypto.createHash('md5').update([
-                    change.eventName,
-                    JSON.stringify(change.dynamodb.Keys),
-                    JSON.stringify(change.dynamodb.NewImage)
-                ].join('')).digest('hex');
-                delete events[hash];
+    var attempts = 0;
+    (function batchWrite(requestSet) {
+        requestSet.forEach(function(req) {
+            if (!req._listener) req.on('retry', function(res) {
+                if (!res.error || !res.httpResponse || !res.httpResponse.headers) return;
+                console.log(
+                    '[failed-request] request-id: %s | id-2: %s | params: %j',
+                    res.httpResponse.headers['x-amz-request-id'],
+                    res.httpResponse.headers['x-amz-id-2'],
+                    req.params
+                );
             });
-            printRemaining(events);
-            next();
+            req._listener = true;
         });
-    }
+
+        requestSet.sendAll(100, function(errs, responses, unprocessed) {
+            attempts++;
+            if (!errs && !unprocessed) return callback();
+
+            var retry = unprocessed ? unprocessed : requestSet;
+
+            if (unprocessed && errs) errs.forEach(function(err, i) {
+                if (err) unprocessed.push(requestSet[i]);
+            });
+
+            else if (errs) errs.forEach(function(err, i) {
+                if (!err) requestSet[i] = null;
+            });
+
+            console.log('[retry] attempt %s contained errors and/or unprocessed items', attempts);
+            return setTimeout(batchWrite, Math.pow(2, attempts), retry);
+        });
+    })(replica.batchWriteItemRequests(params));
 }
 
 function incrementalBackup(event, callback) {
@@ -200,6 +162,15 @@ function incrementalBackup(event, callback) {
                     delete events[hash];
                     printRemaining(events);
                     next();
+                }).on('retry', function(res) {
+                    if (!res.error || !res.httpResponse || !res.httpResponse.headers) return;
+                    console.log(
+                        '[failed-request] request-id: %s | id-2: %s | %s s3://%s/%s | %s',
+                        res.httpResponse.headers['x-amz-request-id'],
+                        res.httpResponse.headers['x-amz-id-2'],
+                        req, params.Bucket, params.Key,
+                        res.error
+                    );
                 });
             });
         });
