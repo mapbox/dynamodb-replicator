@@ -1,5 +1,5 @@
 var test = require('tape');
-var setup = require('./setup')(process.env.LIVE_TEST);
+var dynamodb = require('dynamodb-test')(test, 'dynamodb-replicator', require('./table.json'))
 var backup = require('../backup');
 var _ = require('underscore');
 var crypto = require('crypto');
@@ -8,19 +8,34 @@ var s3 = new AWS.S3();
 var queue = require('queue-async');
 var zlib = require('zlib');
 
-test('setup', setup.setup);
-test('backup: one segment', function(assert) {
+var primaryItems = [
+    {hash: 'hash1', range: 'range1', other:1},
+    {hash: 'hash1', range: 'range2', other:2},
+    {hash: 'hash1', range: 'range4', other: new Buffer('hello world')}
+];
+
+var records = _.range(1000).map(function() {
+    return {
+        hash: crypto.randomBytes(8).toString('hex'),
+        range: crypto.randomBytes(8).toString('hex'),
+        other: crypto.randomBytes(8)
+    };
+});
+
+dynamodb.start();
+
+dynamodb.test('backup: one segment', primaryItems, function(assert) {
     var config = {
         backup: {
             bucket: 'mapbox',
             prefix: 'dynamodb-replicator/test',
             jobid: crypto.randomBytes(4).toString('hex')
         },
-        table: setup.config.primary.table,
-        region: setup.config.primary.region,
-        accessKeyId: setup.config.primary.accessKeyId,
-        secretAccessKey: setup.config.primary.secretAccessKey,
-        endpoint: setup.config.primary.endpoint
+        table: dynamodb.tableName,
+        region: 'us-east-1',
+        accessKeyId: 'fake',
+        secretAccessKey: 'fake',
+        endpoint: 'http://localhost:4567'
     };
 
     backup(config, function(err, details) {
@@ -53,35 +68,19 @@ test('backup: one segment', function(assert) {
         });
     });
 });
-test('teardown', setup.teardown);
 
-test('setup', setup.setup);
-test('load many', function(assert) {
-    var records = _.range(1000).map(function() {
-        return {
-            hash: crypto.randomBytes(8).toString('hex'),
-            range: crypto.randomBytes(8).toString('hex'),
-            other: crypto.randomBytes(8)
-        };
-    });
-
-    setup.dynos.primary.putItems(records, function(err) {
-        if (err) throw err;
-        assert.end();
-    });
-});
-test('backup: parallel', function(assert) {
+dynamodb.test('backup: parallel', records, function(assert) {
     var config = {
         backup: {
             bucket: 'mapbox',
             prefix: 'dynamodb-replicator/test',
             jobid: crypto.randomBytes(4).toString('hex')
         },
-        table: setup.config.primary.table,
-        region: setup.config.primary.region,
-        accessKeyId: setup.config.primary.accessKeyId,
-        secretAccessKey: setup.config.primary.secretAccessKey,
-        endpoint: setup.config.primary.endpoint,
+        table: dynamodb.tableName,
+        region: 'us-east-1',
+        accessKeyId: 'fake',
+        secretAccessKey: 'fake',
+        endpoint: 'http://localhost:4567',
         segments: 2
     };
 
@@ -99,7 +98,7 @@ test('backup: parallel', function(assert) {
             assert.ifError(err, 'all requests completed');
             if (err) return assert.end();
 
-            assert.equal(results[0].count + results[1].count, 1003, 'reported 1003 records');
+            assert.equal(results[0].count + results[1].count, 1000, 'reported 1000 records');
 
             var s3results = results.slice(2);
             zlib.gunzip(s3results[0].Body, function(err, first) {
@@ -108,10 +107,12 @@ test('backup: parallel', function(assert) {
                     assert.ifError(err, 'gzipped backup');
                     first = first.toString().trim().split('\n');
                     second = second.toString().trim().split('\n');
-                    assert.equal(first.length + second.length, 1003, 'backed up all records');
+                    assert.equal(first.length + second.length, 1000, 'backed up all records');
                     assert.end();
                 });
             });
         });
 });
-test('teardown', setup.teardown);
+
+dynamodb.delete();
+dynamodb.close();
