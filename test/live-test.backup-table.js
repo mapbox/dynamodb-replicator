@@ -1,21 +1,27 @@
 var test = require('tape');
-var setup = require('./setup')(true);
+var dynamodb = require('dynamodb-test')(test, 'dynamodb-replicator', require('./table.json'), 'us-east-1');
 var exec = require('child_process').exec;
 var path = require('path');
 var crypto = require('crypto');
 var AWS = require('aws-sdk');
 var queue = require('queue-async');
 
+var primaryItems = [
+    {hash: 'hash1', range: 'range1', other:1},
+    {hash: 'hash1', range: 'range2', other:2},
+    {hash: 'hash1', range: 'range4', other: new Buffer('hello world')}
+];
+
 var starttime = (new Date()).toISOString();
 
-test('setup', setup.setup);
+dynamodb.start();
 
-test('backup-table shell script', function(assert) {
+dynamodb.test('backup-table shell script', primaryItems, function(assert) {
     var jobid = crypto.randomBytes(4).toString('hex');
 
     var cmd = [
         path.resolve(__dirname, '..', 'bin', 'backup-table.js'),
-        'us-east-1/' + setup.config.primary.table,
+        'us-east-1/' + dynamodb.tableName,
         's3://mapbox/dynamodb-replicator/test',
         '--jobid', jobid,
         '--segment 0',
@@ -25,7 +31,6 @@ test('backup-table shell script', function(assert) {
 
     exec(cmd, function(err) {
         assert.ifError(err, 'success');
-
         var s3 = new AWS.S3();
         var cw = new AWS.CloudWatch({ region: 'us-east-1' });
 
@@ -49,7 +54,7 @@ test('backup-table shell script', function(assert) {
                         Dimensions: [
                             {
                                 Name: 'TableName',
-                                Value: setup.config.primary.table
+                                Value: dynamodb.tableName
                             }
                         ],
                         MetricName: 'BackupSize',
@@ -74,7 +79,7 @@ test('backup-table shell script', function(assert) {
                         Dimensions: [
                             {
                                 Name: 'TableName',
-                                Value: setup.config.primary.table
+                                Value: dynamodb.tableName
                             }
                         ],
                         MetricName: 'BackupRecordCount',
@@ -100,4 +105,4 @@ test('backup-table shell script', function(assert) {
     });
 });
 
-test('teardown', setup.teardown);
+dynamodb.delete();
