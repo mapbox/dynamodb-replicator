@@ -1,16 +1,54 @@
 var test = require('tape');
-var setup = require('./setup')(process.env.LIVE_TEST);
+var primary = require('dynamodb-test')(test, 'dynamodb-replicator', require('./table.json'));
+var replica = require('dynamodb-test')(test, 'dynamodb-replicator', require('./table.json'));
 var diff = require('../diff');
-var _ = require('underscore');
 var util = require('util');
+var _ = require('underscore');
+var crypto = require('crypto');
 
-var config = _(setup.config).clone();
-config.log = function() {
-    config.log.messages.push(util.format.apply(this, arguments));
+var primaryItems = [
+    {hash: 'hash1', range: 'range1', other:1},
+    {hash: 'hash1', range: 'range2', other:2},
+    {hash: 'hash1', range: 'range4', other: new Buffer('hello world')}
+];
+
+var replicaItems = [
+    {hash: 'hash1', range: 'range2', other:10000},
+    {hash: 'hash1', range: 'range3', other:3},
+    {hash: 'hash1', range: 'range4', other: new Buffer('hello world')}
+];
+
+var records = _.range(1000).map(function() {
+    return {
+        hash: crypto.randomBytes(8).toString('hex'),
+        range: crypto.randomBytes(8).toString('hex'),
+        other: crypto.randomBytes(8)
+    };
+});
+
+var config = {
+    primary: {
+        table: primary.tableName,
+        region: 'fake',
+        endpoint: 'http://localhost:4567'
+    },
+    replica: {
+        table: replica.tableName,
+        region: 'fake',
+        endpoint: 'http://localhost:4567'
+    },
+    log: function() {
+        config.log.messages.push(util.format.apply(this, arguments));
+    }
 };
+
 config.log.messages = [];
 
-test('setup', setup.setup);
+primary.start();
+replica.start();
+
+primary.load(primaryItems);
+replica.load(replicaItems);
 
 test('diff: without repairs', function(assert) {
     config.repair = false;
@@ -31,7 +69,7 @@ test('diff: without repairs', function(assert) {
             '[extraneous] {"hash":"hash1","range":"range3"}',
             '[different] {"hash":"hash1","range":"range2"}',
             '[discrepancies] 2',
-            '[progress] Scan rate: 6 items @ 6 items/s, 2 scans/s | Compare rate: 6 items/s'
+            '[progress] Scan rate: 6 items @ 6 items/s | Compare rate: 6 items/s'
         ]);
 
         config.log.messages = [];
@@ -50,7 +88,7 @@ test('diff: without repairs', function(assert) {
                 '[extraneous] {"hash":"hash1","range":"range3"}',
                 '[different] {"hash":"hash1","range":"range2"}',
                 '[discrepancies] 2',
-                '[progress] Scan rate: 6 items @ 6 items/s, 2 scans/s | Compare rate: 6 items/s'
+                '[progress] Scan rate: 6 items @ 6 items/s | Compare rate: 6 items/s'
             ]);
 
             assert.end();
@@ -77,7 +115,7 @@ test('diff: with repairs', function(assert) {
             'Scanning replica table and comparing to primary',
             '[extraneous] {"hash":"hash1","range":"range3"}',
             '[discrepancies] 1',
-            '[progress] Scan rate: 7 items @ 7 items/s, 2 scans/s | Compare rate: 7 items/s'
+            '[progress] Scan rate: 7 items @ 7 items/s | Compare rate: 7 items/s'
         ]);
 
         config.repair = false;
@@ -93,16 +131,19 @@ test('diff: with repairs', function(assert) {
                 '[discrepancies] 0',
                 'Scanning replica table and comparing to primary',
                 '[discrepancies] 0',
-                '[progress] Scan rate: 6 items @ 6 items/s, 2 scans/s | Compare rate: 6 items/s'
+                '[progress] Scan rate: 6 items @ 6 items/s | Compare rate: 6 items/s'
             ]);
 
             assert.end();
         });
     });
 });
-test('teardown', setup.teardown);
 
-test('setup', setup.setup);
+primary.empty();
+replica.empty();
+primary.load(primaryItems);
+replica.load(replicaItems);
+
 test('diff: backfill', function(assert) {
     config.repair = true;
     config.backfill = true;
@@ -119,7 +160,7 @@ test('diff: backfill', function(assert) {
             '[backfill] {"hash":"hash1","range":"range2"}',
             '[backfill] {"hash":"hash1","range":"range4"}',
             '[discrepancies] 3',
-            '[progress] Scan rate: 3 items @ 3 items/s, 1 scans/s | Compare rate: 3 items/s'
+            '[progress] Scan rate: 3 items @ 3 items/s | Compare rate: 3 items/s'
         ]);
 
         config.repair = false;
@@ -136,16 +177,18 @@ test('diff: backfill', function(assert) {
                 'Scanning replica table and comparing to primary',
                 '[extraneous] {"hash":"hash1","range":"range3"}',
                 '[discrepancies] 1',
-                '[progress] Scan rate: 7 items @ 7 items/s, 2 scans/s | Compare rate: 7 items/s'
+                '[progress] Scan rate: 7 items @ 7 items/s | Compare rate: 7 items/s'
             ]);
 
             assert.end();
         });
     });
 });
-test('teardown', setup.teardown);
 
-test('setup', setup.setup);
+primary.empty();
+replica.empty();
+primary.load(records);
+
 test('diff: parallel', function(assert) {
     config.repair = false;
     config.backfill = false;
@@ -153,17 +196,15 @@ test('diff: parallel', function(assert) {
     config.segments = 10;
     config.log.messages = [];
 
-    setup.differentItemsPlease(1000, function(err) {
-        if (err) throw err;
+    diff(config, function(err, discrepancies) {
+        assert.ifError(err, 'diff tables');
+        if (err) return assert.end();
 
-        diff(config, function(err, discrepancies) {
-            assert.ifError(err, 'diff tables');
-            if (err) return assert.end();
-
-            assert.ok(discrepancies < 1000, 'scanned partial table');
-            assert.end();
-        });
+        assert.ok(discrepancies < 1000, 'scanned partial table');
+        assert.end();
     });
 });
 
-test('teardown', setup.teardown);
+primary.delete();
+replica.delete();
+primary.close();

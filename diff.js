@@ -7,32 +7,25 @@ var assert = require('assert');
 module.exports = function(config, done) {
     var primary = Dyno(config.primary);
     var replica = Dyno(config.replica);
+    primary.tableName = config.primary.table;
+    replica.tableName = config.replica.table;
     primary.name = 'primary';
     replica.name = 'replica';
 
     var log = config.log || console.log;
     var scanOpts = config.hasOwnProperty('segment') && config.segments ?
-        { segment: config.segment, segments: config.segments } : undefined;
+        { Segment: config.segment, TotalSegments: config.segments } : undefined;
 
     var discrepancies = 0;
-    var scanRequests = 0;
     var itemsScanned = 0;
     var itemsCompared = 0;
     var start = Date.now();
 
-    function progress(params, response) {
-        scanRequests++;
-        itemsScanned += response.Count;
-        if (response.LastEvaluatedKey)
-            log('[progress] LastEvaluatedKey: %j', response.LastEvaluatedKey);
-    }
-
     function report() {
         var elapsed = (Date.now() - start) / 1000;
         var scanRate = Math.min(itemsScanned, (itemsScanned / elapsed).toFixed(2));
-        var reqRate = Math.min(scanRequests, (scanRequests / elapsed).toFixed(2));
         var compareRate = Math.min(itemsCompared, (itemsCompared / elapsed).toFixed(2));
-        log('[progress] Scan rate: %s items @ %s items/s, %s scans/s | Compare rate: %s items/s', itemsScanned, scanRate, reqRate, compareRate);
+        log('[progress] Scan rate: %s items @ %s items/s | Compare rate: %s items/s', itemsScanned, scanRate, compareRate);
     }
 
     var reporter = setInterval(report, 60000).unref();
@@ -66,11 +59,17 @@ module.exports = function(config, done) {
         comparison.discrepancies = 0;
 
         comparison._transform = function(records, enc, callback) {
+            var params = { RequestItems: {} };
+            params.RequestItems[readFrom.tableName] = { Keys: [] };
+            itemsScanned += records.length;
+
             var recordKeys = records.reduce(function(recordKeys, record) {
-                recordKeys.push(keySchema.reduce(function(key, attribute) {
+                var key = keySchema.reduce(function(key, attribute) {
                     key[attribute] = record[attribute];
                     return key;
-                }, {}));
+                }, {});
+                params.RequestItems[readFrom.tableName].Keys.push(key);
+                recordKeys.push(key);
                 return recordKeys;
             }, []);
 
@@ -91,9 +90,21 @@ module.exports = function(config, done) {
                 return callback();
             }
 
-            readFrom.getItems(recordKeys, function(err, items) {
-                if (err) return callback(err);
+            var items = [];
+            (function read(params) {
+                readFrom.batchGetItem(params, function(err, data) {
+                    if (err) return callback(err);
 
+                    items = items.concat(data.Responses[readFrom.tableName]);
+
+                    if (Object.keys(data.UnprocessedKeys).length)
+                        return read({ RequestItems: data.UnprocessedKeys });
+
+                    gotAll();
+                })
+            })(params);
+
+            function gotAll() {
                 var itemKeys = items.reduce(function(itemKeys, item) {
                     itemKeys.push(keySchema.reduce(function(key, attribute) {
                         key[attribute] = item[attribute];
@@ -115,15 +126,15 @@ module.exports = function(config, done) {
 
                     if (!item) {
                         q.defer(function(next) {
-                            compareTo.getItem(key, { consistentRead: true }, function(err, record) {
+                            compareTo.getItem({ Key: key, ConsistentRead: true }, function(err, data) {
                                 itemsCompared++;
                                 if (err) return next(err);
+                                var record = data.Item;
 
                                 if (record) {
                                     comparison.discrepancies++;
                                     log('[%s] %j', noItem, key);
                                     if (!config.repair) return next();
-
                                     if (deleteMissing) comparison.push({ remove: key });
                                     else comparison.push({ put: record });
                                 }
@@ -144,8 +155,9 @@ module.exports = function(config, done) {
                     try { assert.deepEqual(JSON.parse(recordString), JSON.parse(itemString)); }
                     catch (notEqual) {
                         q.defer(function(next) {
-                            compareTo.getItem(JSON.parse(key), { consistentRead: true }, function(err, record) {
+                            compareTo.getItem({ Key: JSON.parse(key), ConsistentRead: true }, function(err, data) {
                                 if (err) return next(err);
+                                var record = data.Item;
 
                                 var recordString = Dyno.serialize(record);
 
@@ -154,7 +166,6 @@ module.exports = function(config, done) {
                                     comparison.discrepancies++;
                                     log('[different] %s', key);
                                     if (!config.repair) return next();
-
                                     comparison.push({ put: record });
                                 }
 
@@ -165,7 +176,7 @@ module.exports = function(config, done) {
                 });
 
                 q.awaitAll(function(err) { callback(err); });
-            });
+            }
         };
 
         return comparison;
@@ -173,47 +184,51 @@ module.exports = function(config, done) {
 
     function Write() {
         var writer = new stream.Writable({ objectMode: true, highWaterMark: 40 });
-        writer.puts = [];
-        writer.deletes = [];
+        writer.params = { RequestItems: {} };
+        writer.params.RequestItems[replica.tableName] = [];
+        writer.pending = false;
 
         writer._write = function(item, enc, callback) {
-            if (!item.put && !item.remove)
+            if (!item.put && !item.remove) {
                 return callback(new Error('Invalid item sent to writer: ' + JSON.stringify(item)));
-
-            var buffer = item.put ? writer.puts : writer.deletes;
-            if (buffer.length < 25) {
-                buffer.push(item.put || item.remove);
-                return callback();
             }
 
-            if (item.put) {
-                return replica.putItems(writer.puts, function(err) {
+            var buffer = writer.params.RequestItems[replica.tableName];
+            buffer.push(item.put ? { PutRequest: { Item: item.put } } : { DeleteRequest: { Key: item.remove } });
+            if (buffer.length < 25) return callback();
+
+            (function write(params) {
+                writer.pending = true;
+                replica.batchWriteItem(params, function(err, data) {
+                    writer.pending = false;
                     if (err) return callback(err);
-                    writer.puts = [item.put];
+
+                    if (Object.keys(data.UnprocessedKeys).length)
+                        return write({ RequestItems: data.UnprocessedKeys });
+
+                    writer.params.RequestItems[replica.tableName] = [];
                     callback();
                 });
-            }
-
-            if (item.remove) {
-                return replica.deleteItems(writer.deletes, function(err) {
-                    if (err) return callback(err);
-                    writer.deletes = [item.remove];
-                    callback();
-                });
-            }
+            })(writer.params);
         };
 
         var streamEnd = writer.end.bind(writer);
         writer.end = function() {
-            var q = queue();
+            if (writer.pending) return setImmediate(writer.end);
 
-            if (writer.puts.length) q.defer(replica.putItems, writer.puts);
-            if (writer.deletes.length) q.defer(replica.deleteItems, writer.deletes);
+            if (!writer.params.RequestItems[replica.tableName].length)
+                return streamEnd();
 
-            q.awaitAll(function(err) {
-                if (err) return writer.emit('error', err);
-                streamEnd();
-            });
+            (function write(params) {
+                replica.batchWriteItem(params, function(err, data) {
+                    if (err) return streamEnd(err);
+
+                    if (data.UnprocessedKeys && Object.keys(data.UnprocessedKeys).length)
+                        return write({ RequestItems: data.UnprocessedKeys });
+
+                    streamEnd();
+                });
+            })(writer.params);
         };
 
         return writer;
@@ -232,8 +247,7 @@ module.exports = function(config, done) {
 
         log('Scanning primary table and comparing to replica');
 
-        primary.scan(scanOpts)
-            .on('dbrequest', progress)
+        primary.scanStream(scanOpts)
             .on('error', finish)
           .pipe(aggregate)
             .on('error', finish)
@@ -256,8 +270,7 @@ module.exports = function(config, done) {
 
         log('Scanning replica table and comparing to primary');
 
-        replica.scan(scanOpts)
-            .on('dbrequest', progress)
+        replica.scanStream(scanOpts)
             .on('error', finish)
           .pipe(aggregate)
             .on('error', finish)
