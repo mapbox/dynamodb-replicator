@@ -138,7 +138,6 @@ test('[s3-snapshot]', function(assert) {
     function checkLog() {
         fs.readFile(log, 'utf8', function(err, data) {
             assert.ifError(err, 'log file was written');
-            console.log(data);
             assert.ok(data.length, 'has logs in it');
             assert.end();
         });

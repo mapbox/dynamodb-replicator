@@ -36,7 +36,12 @@ if (!key) {
 }
 
 // Converts incoming strings in wire or dyno format into dyno format
-try { key = Dyno.deserialize(key); }
+try {
+    var obj = Dyno.deserialize(key);
+    for (var k in obj) if (!obj[k]) throw new Error();
+    key = obj;
+
+}
 catch (err) { key = JSON.parse(key); }
 
 var primaryConfig = {
@@ -65,11 +70,13 @@ if (replicaConfig.region === 'local') {
 
 var replica = Dyno(replicaConfig);
 
-primary.getItem(key, function(err, primaryRecord) {
+primary.getItem({ Key: key }, function(err, data) {
     if (err) throw err;
+    var primaryRecord = data.Item;
 
-    replica.getItem(key, function(err, replicaRecord) {
+    replica.getItem({ Key: key }, function(err, data) {
         if (err) throw err;
+        var replicaRecord = data.Item;
 
         console.log('Primary record');
         console.log('--------------');

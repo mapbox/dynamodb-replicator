@@ -59,7 +59,12 @@ key = JSON.stringify(Object.keys(key).sort().reduce(function(keyObj, attr) {
 }, {}));
 
 // Converts incoming strings in wire or dyno format into dyno format
-try { key = Dyno.deserialize(key); }
+try {
+    var obj = Dyno.deserialize(key);
+    for (var k in obj) if (!obj[k]) throw new Error();
+    key = obj;
+
+}
 catch (err) { key = JSON.parse(key); }
 
 s3url.Key = [

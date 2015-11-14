@@ -1,17 +1,34 @@
-var setup = require('./setup')();
-var exec = require('child_process').exec;
 var test = require('tape');
+var primary = require('dynamodb-test')(test, 'dynamodb-replicator', require('./table.json'));
+var replica = require('dynamodb-test')(test, 'dynamodb-replicator', require('./table.json'));
+var exec = require('child_process').exec;
 var queue = require('queue-async');
 var diffRecord = require('path').resolve(__dirname, '..', 'bin', 'diff-record.js');
 
-test('setup', setup.setup);
+var primaryItems = [
+    {hash: 'hash1', range: 'range1', other:1},
+    {hash: 'hash1', range: 'range2', other:2},
+    {hash: 'hash1', range: 'range4', other: new Buffer('hello world')}
+];
+
+var replicaItems = [
+    {hash: 'hash1', range: 'range2', other:10000},
+    {hash: 'hash1', range: 'range3', other:3},
+    {hash: 'hash1', range: 'range4', other: new Buffer('hello world')}
+];
+
+primary.start();
+primary.load(primaryItems);
+replica.start();
+replica.load(replicaItems);
+
 test('diff-record', function(assert) {
     queue()
         .defer(function(next) {
             var cmd = [
                 diffRecord,
-                'local/' + setup.config.primary.table,
-                'local/' + setup.config.replica.table,
+                'local/' + primary.tableName,
+                'local/' + replica.tableName,
                 '\'{"hash":"hash1","range":"range2"}\''
             ].join(' ');
             exec(cmd, function(err, stdout) {
@@ -23,8 +40,8 @@ test('diff-record', function(assert) {
         .defer(function(next) {
             var cmd = [
                 diffRecord,
-                'local/' + setup.config.primary.table,
-                'local/' + setup.config.replica.table,
+                'local/' + primary.tableName,
+                'local/' + replica.tableName,
                 '\'{"hash":"hash1","range":"range4"}\''
             ].join(' ');
             exec(cmd, function(err, stdout) {
@@ -37,4 +54,7 @@ test('diff-record', function(assert) {
             assert.end();
         });
 });
-test('teardown', setup.teardown);
+
+primary.delete();
+replica.delete();
+primary.close();
