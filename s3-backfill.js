@@ -74,7 +74,7 @@ module.exports = function(config, done) {
             writer.queue.awaitAll(end);
         };
 
-        primary.scan()
+        primary.scanStream()
             .on('error', next)
           .pipe(writer)
             .on('error', next)
