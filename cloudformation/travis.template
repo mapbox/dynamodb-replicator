@@ -35,6 +35,7 @@
                                         "dynamodb:DeleteTable",
                                         "dynamodb:DescribeTable",
                                         "dynamodb:PutItem",
+                                        "dynamodb:BatchWriteItem",
                                         "dynamodb:Scan"
                                     ],
                                     "Effect": "Allow",
@@ -46,7 +47,7 @@
                                                 {
                                                     "Ref": "AWS::AccountId"
                                                 },
-                                                ":table/dynamodb-replicator-test-*"
+                                                ":table/test-dynamodb-replicator-*"
                                             ]
                                         ]
                                     }
