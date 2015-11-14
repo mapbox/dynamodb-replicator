@@ -52,7 +52,12 @@ if (!key) {
 }
 
 // Converts incoming strings in wire or dyno format into dyno format
-try { key = Dyno.deserialize(key); }
+try {
+    var obj = Dyno.deserialize(key);
+    for (var k in obj) if (!obj[k]) throw new Error();
+    key = obj;
+
+}
 catch (err) { key = JSON.parse(key); }
 
 var dyno = Dyno({
@@ -60,9 +65,10 @@ var dyno = Dyno({
     table: table
 });
 
-dyno.getItem(key, function(err, data) {
+dyno.getItem({ Key: key }, function(err, data) {
     if (err) throw err;
-
+    data = data.Item;
+    
     var event = {
         Records: [
             {
