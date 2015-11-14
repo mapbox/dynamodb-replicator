@@ -53,17 +53,23 @@ if (!key) {
 }
 
 // Converts incoming strings in wire or dyno format into dyno format
-try { key = Dyno.deserialize(key); }
+try {
+    var obj = Dyno.deserialize(key);
+    for (var k in obj) if (!obj[k]) throw new Error();
+    key = obj;
+
+}
 catch (err) { key = JSON.parse(key); }
 
-primaryDyno.getItem(key, { consistentRead: true }, function(err, item) {
+primaryDyno.getItem({ Key: key, ConsistentRead: true }, function(err, data) {
     if (err) throw err;
+    var item = data.Item;
 
-    if (!item) return replicaDyno.deleteItem(key, function(err) {
+    if (!item) return replicaDyno.deleteItem({ Key: key }, function(err) {
         if (err) throw err;
     });
 
-    replicaDyno.putItem(item, function(err) {
+    replicaDyno.putItem({ Item: item }, function(err) {
         if (err) throw err;
     });
 });
