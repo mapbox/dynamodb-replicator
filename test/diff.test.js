@@ -189,6 +189,33 @@ primary.empty();
 replica.empty();
 primary.load(records);
 
+test('diff: repair/backfill large number of discrepancies', function(assert) {
+    config.repair = true;
+    config.backfill = true;
+    config.log.messages = [];
+
+    diff(config, function(err, discrepancies) {
+        assert.ifError(err, 'diff tables');
+        if (err) return assert.end();
+        assert.equal(discrepancies, 1000, '1000 records backfilled');
+
+        config.repair = false;
+        config.backfill = false;
+        config.log.messages = [];
+        diff(config, function(err, discrepancies) {
+            assert.ifError(err, 'diff tables');
+            if (err) return assert.end();
+
+            assert.equal(discrepancies, 0, '0 discrepancies post-backfill');
+            assert.end();
+        });
+    });
+});
+
+primary.empty();
+replica.empty();
+primary.load(records);
+
 test('diff: parallel', function(assert) {
     config.repair = false;
     config.backfill = false;

@@ -35,10 +35,9 @@ module.exports = function(config, done) {
         aggregation.records = [];
 
         aggregation._transform = function(record, enc, callback) {
-            if (aggregation.records.length < 25) {
-                aggregation.records.push(record);
-                return callback();
-            }
+            aggregation.records.push(record);
+
+            if (aggregation.records.length < 25) return callback();
 
             aggregation.push(aggregation.records);
             aggregation.records = [];
@@ -203,7 +202,7 @@ module.exports = function(config, done) {
                     writer.pending = false;
                     if (err) return callback(err);
 
-                    if (Object.keys(data.UnprocessedKeys).length)
+                    if (data.UnprocessedKeys && Object.keys(data.UnprocessedKeys).length)
                         return write({ RequestItems: data.UnprocessedKeys });
 
                     writer.params.RequestItems[replica.tableName] = [];
