@@ -25,12 +25,14 @@ function replicate(event, callback) {
         region: process.env.ReplicaRegion,
         maxRetries: 1000,
         httpOptions: {
-            timeout: 500,
+            timeout: 750,
             agent: streambot.agent
         }
     };
     if (process.env.ReplicaEndpoint) replicaConfig.endpoint = process.env.ReplicaEndpoint;
     var replica = new Dyno(replicaConfig);
+
+    var keyAttrs = Object.keys(event.Records[0].dynamodb.Keys);
 
     var allRecords = event.Records.reduce(function(allRecords, change) {
         var id = JSON.stringify(change.dynamodb.Keys);
@@ -53,39 +55,39 @@ function replicate(event, callback) {
         }
     });
 
-    var attempts = 0;
-    (function batchWrite(requestSet) {
+    (function batchWrite(requestSet, attempts) {
         requestSet.forEach(function(req) {
-            if (!req._listener) req.on('retry', function(res) {
+            req.on('retry', function(res) {
                 if (!res.error || !res.httpResponse || !res.httpResponse.headers) return;
                 console.log(
-                    '[failed-request] request-id: %s | id-2: %s | params: %j',
-                    res.httpResponse.headers['x-amz-request-id'],
-                    res.httpResponse.headers['x-amz-id-2'],
-                    req.params
+                    '[failed-request] %s | request-id: %s | crc32: %s | items: %j',
+                    res.error.message,
+                    res.httpResponse.headers['x-amzn-requestid'],
+                    res.httpResponse.headers['x-amz-crc32'],
+                    req.params.RequestItems[process.env.ReplicaTable].map(function(req) {
+                        if (req.DeleteRequest) return req.DeleteRequest.Key;
+                        if (req.PutRequest) return keyAttrs.reduce(function(key, k) {
+                            key[k] = req.PutRequest.Item[k];
+                            return key;
+                        }, {});
+                    })
                 );
             });
-            req._listener = true;
         });
 
         requestSet.sendAll(100, function(errs, responses, unprocessed) {
             attempts++;
-            if (!errs && !unprocessed) return callback();
 
-            var retry = unprocessed ? unprocessed : requestSet;
+            if (errs) return callback(errs);
 
-            if (unprocessed && errs) errs.forEach(function(err, i) {
-                if (err) unprocessed.push(requestSet[i]);
-            });
+            if (unprocessed) {
+                console.log('[retry] attempt %s contained unprocessed items', attempts);
+                return setTimeout(batchWrite, Math.pow(2, attempts), unprocessed, attempts);
+            }
 
-            else if (errs) errs.forEach(function(err, i) {
-                if (!err) requestSet[i] = null;
-            });
-
-            console.log('[retry] attempt %s contained errors and/or unprocessed items', attempts);
-            return setTimeout(batchWrite, Math.pow(2, attempts), retry);
+            callback();
         });
-    })(replica.batchWriteItemRequests(params));
+    })(replica.batchWriteItemRequests(params), 0);
 }
 
 function incrementalBackup(event, callback) {
