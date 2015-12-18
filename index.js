@@ -9,16 +9,6 @@ module.exports.streambotReplicate = streambot(replicate);
 module.exports.backup = incrementalBackup;
 module.exports.streambotBackup = streambot(incrementalBackup);
 
-function printRemaining(events, first) {
-    var msg = '--> %s events remaining';
-    if (first) msg = msg.replace('remaining', 'total');
-
-    console.log(msg, Object.keys(events).length);
-    Object.keys(events).forEach(function(hash) {
-        console.log('%s: %s %s', hash, events[hash].action, events[hash].key);
-    });
-}
-
 function replicate(event, callback) {
     var replicaConfig = {
         table: process.env.ReplicaTable,
@@ -91,17 +81,8 @@ function replicate(event, callback) {
 }
 
 function incrementalBackup(event, callback) {
-    var events = {};
     var allRecords = event.Records.reduce(function(allRecords, action) {
         var id = JSON.stringify(action.dynamodb.Keys);
-        var hash = crypto.createHash('md5')
-            .update([
-                action.eventName,
-                JSON.stringify(action.dynamodb.Keys),
-                JSON.stringify(action.dynamodb.NewImage)
-            ].join(''))
-            .digest('hex');
-        events[hash] = { key: id, action: action.eventName };
 
         allRecords[id] = allRecords[id] || [];
         allRecords[id].push(action);
@@ -119,9 +100,6 @@ function incrementalBackup(event, callback) {
     if (process.env.BackupRegion) params.region = process.env.BackupRegion;
 
     var s3 = new AWS.S3(params);
-
-    printRemaining(events, true);
-
     var q = queue();
 
     Object.keys(allRecords).forEach(function(key) {
@@ -141,13 +119,6 @@ function incrementalBackup(event, callback) {
                 var id = crypto.createHash('md5')
                     .update(JSON.stringify(change.dynamodb.Keys))
                     .digest('hex');
-                var hash = crypto.createHash('md5')
-                    .update([
-                        change.eventName,
-                        JSON.stringify(change.dynamodb.Keys),
-                        JSON.stringify(change.dynamodb.NewImage)
-                    ].join(''))
-                    .digest('hex');
 
                 var table = change.eventSourceARN.split('/')[1];
 
@@ -161,8 +132,6 @@ function incrementalBackup(event, callback) {
 
                 s3[req](params, function(err) {
                     if (err) return next(err);
-                    delete events[hash];
-                    printRemaining(events);
                     next();
                 }).on('retry', function(res) {
                     if (!res.error || !res.httpResponse || !res.httpResponse.headers) return;
