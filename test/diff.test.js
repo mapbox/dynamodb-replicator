@@ -60,7 +60,7 @@ test('diff: without repairs', function(assert) {
 
         assert.equal(discrepancies, 4, 'four discrepacies');
 
-        assert.deepEqual(config.log.messages, [
+        assert.equal(_.difference(config.log.messages, [
             'Scanning primary table and comparing to replica',
             '[missing] {"hash":"hash1","range":"range1"}',
             '[different] {"hash":"hash1","range":"range2"}',
@@ -70,7 +70,7 @@ test('diff: without repairs', function(assert) {
             '[different] {"hash":"hash1","range":"range2"}',
             '[discrepancies] 2',
             '[progress] Scan rate: 6 items @ 6 items/s | Compare rate: 6 items/s'
-        ]);
+        ]).length, 0, 'expected log messages');
 
         config.log.messages = [];
         diff(config, function(err, discrepancies) {
@@ -79,7 +79,7 @@ test('diff: without repairs', function(assert) {
 
             assert.equal(discrepancies, 4, 'four discrepacies on second comparison');
 
-            assert.deepEqual(config.log.messages, [
+            assert.equal(_.difference(config.log.messages, [
                 'Scanning primary table and comparing to replica',
                 '[missing] {"hash":"hash1","range":"range1"}',
                 '[different] {"hash":"hash1","range":"range2"}',
@@ -89,7 +89,7 @@ test('diff: without repairs', function(assert) {
                 '[different] {"hash":"hash1","range":"range2"}',
                 '[discrepancies] 2',
                 '[progress] Scan rate: 6 items @ 6 items/s | Compare rate: 6 items/s'
-            ]);
+            ]).length, 0, 'expected log messages');
 
             assert.end();
         });
@@ -107,7 +107,7 @@ test('diff: with repairs', function(assert) {
 
         assert.equal(discrepancies, 3, 'three discrepacies');
 
-        assert.deepEqual(config.log.messages, [
+        assert.equal(_.difference(config.log.messages, [
             'Scanning primary table and comparing to replica',
             '[missing] {"hash":"hash1","range":"range1"}',
             '[different] {"hash":"hash1","range":"range2"}',
@@ -116,7 +116,7 @@ test('diff: with repairs', function(assert) {
             '[extraneous] {"hash":"hash1","range":"range3"}',
             '[discrepancies] 1',
             '[progress] Scan rate: 7 items @ 7 items/s | Compare rate: 7 items/s'
-        ]);
+        ]).length, 0, 'expected log messages');
 
         config.repair = false;
         config.log.messages = [];
@@ -126,13 +126,13 @@ test('diff: with repairs', function(assert) {
 
             assert.equal(discrepancies, 0, 'no discrepacies on second comparison');
 
-            assert.deepEqual(config.log.messages, [
+            assert.equal(_.difference(config.log.messages, [
                 'Scanning primary table and comparing to replica',
                 '[discrepancies] 0',
                 'Scanning replica table and comparing to primary',
                 '[discrepancies] 0',
                 '[progress] Scan rate: 6 items @ 6 items/s | Compare rate: 6 items/s'
-            ]);
+            ]).length, 0, 'expected log messages');
 
             assert.end();
         });

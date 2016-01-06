@@ -49,6 +49,7 @@ function replicate(event, callback) {
         requestSet.forEach(function(req) {
             req.on('retry', function(res) {
                 if (!res.error || !res.httpResponse || !res.httpResponse.headers) return;
+                if (res.error.name === 'TimeoutError') res.error.retryable = true;
                 console.log(
                     '[failed-request] %s | request-id: %s | crc32: %s | items: %j',
                     res.error.message,
@@ -68,7 +69,14 @@ function replicate(event, callback) {
         requestSet.sendAll(100, function(errs, responses, unprocessed) {
             attempts++;
 
-            if (errs) return callback(errs);
+            if (errs) {
+                var messages = errs
+                    .filter(function(err) { return !!err; })
+                    .map(function(err) { return err.message; })
+                    .join(' | ');
+                console.log('[error] %s', messages);
+                return callback(errs);
+            }
 
             if (unprocessed) {
                 console.log('[retry] attempt %s contained unprocessed items', attempts);
@@ -131,10 +139,16 @@ function incrementalBackup(event, callback) {
                 if (req === 'putObject') params.Body = JSON.stringify(change.dynamodb.NewImage);
 
                 s3[req](params, function(err) {
-                    if (err) return next(err);
-                    next();
+                    if (err) console.log(
+                        '[error] %s | %s s3://%s/%s | %s',
+                        JSON.stringify(change.dynamodb.Keys),
+                        req, params.Bucket, params.Key,
+                        err.message
+                    );
+                    next(err);
                 }).on('retry', function(res) {
                     if (!res.error || !res.httpResponse || !res.httpResponse.headers) return;
+                    if (res.error.name === 'TimeoutError') res.error.retryable = true;
                     console.log(
                         '[failed-request] request-id: %s | id-2: %s | %s s3://%s/%s | %s',
                         res.httpResponse.headers['x-amz-request-id'],
