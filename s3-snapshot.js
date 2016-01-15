@@ -1,8 +1,8 @@
 var AWS = require('aws-sdk');
-var streambot = require('streambot');
 var s3scan = require('s3scan');
 var zlib = require('zlib');
 var stream = require('stream');
+var AgentKeepAlive = require('agentkeepalive');
 
 module.exports = function(config, done) {
     var log = config.log || console.log;
@@ -14,7 +14,14 @@ module.exports = function(config, done) {
         return done(new Error('Must provide destination bucket and key where the snapshot will be put'));
 
     var s3Options = {
-        httpOptions: { agent: streambot.agent }
+        httpOptions: {
+            timeout: 1000,
+            agent: new AgentKeepAlive.HttpsAgent({
+                keepAlive: true,
+                maxSockets: 256,
+                keepAliveTimeout: 60000
+            })
+        }
     };
     if (config.maxRetries) s3Options.maxRetries = config.maxRetries;
     if (config.logger) s3Options.logger = config.logger;
