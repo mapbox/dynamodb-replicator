@@ -72,7 +72,7 @@ module.exports = function(config, done) {
     upload.send(function(err) {
         if (err) return done(err);
 
-        log('Uploaded snapshot to %s', uri);
+        log('Uploaded snapshot to s3://%s/%s', config.destination.bucket, config.destination.key);
         log('Wrote %s items and %s bytes to snapshot', objStream.got, size);
         done(null, { size: size, count: objStream.got });
     });
