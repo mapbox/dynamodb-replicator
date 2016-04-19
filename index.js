@@ -128,7 +128,33 @@ function incrementalBackup(event, context, callback) {
 
         changes.forEach(function(change) {
             q.defer(function(next) {
-                console.log('Processing: ' + JSON.stringify(change));
+
+                var id;
+                if (process.env.PlainTextKeyAsFilename) {
+                    id = '';
+                    Object.keys(change.dynamodb.Keys).sort().forEach(function(current) {
+                        if (id !== '')
+                            id += ' | ';
+
+                        var key = change.dynamodb.Keys[current];
+                        var value = key[Object.keys(key)[0]];                        
+                        id += value;
+                    });
+                } else {
+                    id = crypto.createHash('md5')
+                var id;
+                if (process.env.PlainTextKeyAsFilename) {
+                    id = '';
+                    Object.keys(change.dynamodb.Keys).sort().forEach(function(current) {
+                        if (id !== '')
+                            id += ' | ';
+
+                        var key = change.dynamodb.Keys[current];
+                        var value = key[Object.keys(key)[0]];                        
+                        id += value;
+                    });
+                } else {
+                    id = crypto.createHash('md5')
                 var id = crypto.createHash('md5')
                     .update(JSON.stringify(change.dynamodb.Keys))
                     .digest('hex');

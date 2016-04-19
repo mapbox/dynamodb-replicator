@@ -282,4 +282,426 @@ test('[incremental backup] adjust many', function(assert) {
     });
 });
 
+test('[incremental backup] adjust many with multitenancy column', function(assert) {
+    process.env.BackupPrefix = 'dynamodb-replicator/test/' + crypto.randomBytes(4).toString('hex');
+    process.env.MultiTenancyColumn = 'id'
+
+    var event = require(path.join(events, 'adjust-many.json'));
+    var table = event.Records[0].eventSourceARN.split('/')[1];
+
+    var expected = [
+        { range: { N: '22' }, id: { S: 'record-2' } },
+        { range: { N: '33' }, id: { S: 'record-3' } }
+    ];
+
+    backup(event, this, function(err) {
+        assert.ifError(err, 'success');
+        var q = queue();
+
+        expected.forEach(function(record) {
+            q.defer(function(next) {
+                var key = { id: record.id };
+                var id = crypto.createHash('md5')
+                    .update(JSON.stringify(key))
+                    .digest('hex');
+
+                var mtCol = record.id.S;
+                var s3Key = [process.env.BackupPrefix, table, mtCol, id].join('/');
+
+                s3.getObject({
+                    Bucket: process.env.BackupBucket,
+                    Key: s3Key
+                }, function(err, data) {
+                    assert.ifError(err, 'no S3 error for ' + JSON.stringify(key));
+                    if (!data) return next();
+                    assert.ok(data.Body, 'got S3 object for ' + JSON.stringify(key));
+
+                    var found = JSON.parse(data.Body.toString());
+                    assert.deepEqual(found, record, 'expected item modified on S3 for ' + JSON.stringify(key));
+                    next();
+                });
+            });
+        });
+
+        q.defer(function(next) {
+            var id = crypto.createHash('md5')
+                .update(JSON.stringify({ id: { S: 'record-1' } }))
+                .digest('hex');
+
+            s3.getObject({
+                Bucket: process.env.BackupBucket,
+                Key: [process.env.BackupPrefix, table, 'record-1', id].join('/')
+            }, function(err) {
+                assert.equal(err.code, 'NoSuchKey', 'object was deleted');
+                next();
+            });
+        });
+
+        q.awaitAll(function() {
+            assert.end();
+        });
+    });
+});
+
+test('[incremental backup] adjust many with multitenancy column', function(assert) {
+    process.env.BackupPrefix = 'dynamodb-replicator/test/' + crypto.randomBytes(4).toString('hex');
+    process.env.MultiTenancyColumn = 'id'
+
+    var event = require(path.join(events, 'adjust-many.json'));
+    var table = event.Records[0].eventSourceARN.split('/')[1];
+
+    var expected = [
+        { range: { N: '22' }, id: { S: 'record-2' } },
+        { range: { N: '33' }, id: { S: 'record-3' } }
+    ];
+
+    backup(event, context, function(err) {
+        assert.ifError(err, 'success');
+        var q = queue();
+
+        expected.forEach(function(record) {
+            q.defer(function(next) {
+                var key = { id: record.id };
+                var id = crypto.createHash('md5')
+                    .update(JSON.stringify(key))
+                    .digest('hex');
+
+                var mtCol = record.id.S;
+                var s3Key = [process.env.BackupPrefix, table, mtCol, id].join('/');
+                console.log('Checking: ' + s3Key);
+                s3.getObject({
+                    Bucket: process.env.BackupBucket,
+                    Key: s3Key
+                }, function(err, data) {
+                    assert.ifError(err, 'no S3 error for ' + JSON.stringify(key));
+                    if (!data) return next();
+                    assert.ok(data.Body, 'got S3 object for ' + JSON.stringify(key));
+
+                    var found = JSON.parse(data.Body.toString());
+                    assert.deepEqual(found, record, 'expected item modified on S3 for ' + JSON.stringify(key));
+                    next();
+                });
+            });
+        });
+
+        q.defer(function(next) {
+            var id = crypto.createHash('md5')
+                .update(JSON.stringify({ id: { S: 'record-1' } }))
+                .digest('hex');
+
+            s3.getObject({
+                Bucket: process.env.BackupBucket,
+                Key: [process.env.BackupPrefix, table, 'record-1', id].join('/')
+            }, function(err) {
+                assert.equal(err.code, 'NoSuchKey', 'object was deleted');
+                next();
+            });
+        });
+
+        q.awaitAll(function() {
+            assert.end();
+            delete process.env.MultiTenancyColumn;
+        });
+    });    
+});
+
+test('[incremental backup] adjust many with keys used as filename', function(assert) {
+    process.env.BackupPrefix = 'dynamodb-replicator/test/' + crypto.randomBytes(4).toString('hex');
+    process.env.PlainTextKeyAsFilename = true;
+
+    var event = require(path.join(events, 'adjust-many.json'));
+    var table = event.Records[0].eventSourceARN.split('/')[1];
+
+    var expected = [
+        { range: { N: '22' }, id: { S: 'record-2' } },
+        { range: { N: '33' }, id: { S: 'record-3' } }
+    ];
+
+    backup(event, context, function(err) {
+        assert.ifError(err, 'success');
+        var q = queue();
+
+        expected.forEach(function(record) {
+            q.defer(function(next) {
+                var key = { id: record.id };
+                var id = record.id.S;
+
+                var s3Key = [process.env.BackupPrefix, table, id].join('/');
+
+                console.log('Checking s3Key: ' + s3Key + ' | ' + process.env.BackupBucket);
+
+                s3.getObject({
+                    Bucket: process.env.BackupBucket,
+                    Key: s3Key
+                }, function(err, data) {
+                    assert.ifError(err, 'no S3 error for ' + JSON.stringify(key));
+                    if (!data) return next();
+                    assert.ok(data.Body, 'got S3 object for ' + JSON.stringify(key));
+
+                    var found = JSON.parse(data.Body.toString());
+                    assert.deepEqual(found, record, 'expected item modified on S3 for ' + JSON.stringify(key));
+                    next();
+                });
+            });
+        });
+
+        q.defer(function(next) {
+            var id = 'record-1';
+
+            s3.getObject({
+                Bucket: process.env.BackupBucket,
+                Key: [process.env.BackupPrefix, table, id].join('/')
+            }, function(err) {
+                assert.equal(err.code, 'NoSuchKey', 'object was deleted');
+                next();
+            });
+        });
+
+        q.awaitAll(function() {
+            assert.end();
+            delete process.env.PlainTextKeyAsFilename;
+        });
+    });
+
+});
+
+test('[incremental backup] adjust many with multitenancy column', function(assert) {
+    process.env.BackupPrefix = 'dynamodb-replicator/test/' + crypto.randomBytes(4).toString('hex');
+    process.env.MultiTenancyColumn = 'id'
+
+    var event = require(path.join(events, 'adjust-many.json'));
+    var table = event.Records[0].eventSourceARN.split('/')[1];
+
+    var expected = [
+        { range: { N: '22' }, id: { S: 'record-2' } },
+        { range: { N: '33' }, id: { S: 'record-3' } }
+    ];
+
+    backup(event, this, function(err) {
+        assert.ifError(err, 'success');
+        var q = queue();
+
+        expected.forEach(function(record) {
+            q.defer(function(next) {
+                var key = { id: record.id };
+                var id = crypto.createHash('md5')
+                    .update(JSON.stringify(key))
+                    .digest('hex');
+
+                var mtCol = record.id.S;
+                var s3Key = [process.env.BackupPrefix, table, mtCol, id].join('/');
+
+                s3.getObject({
+                    Bucket: process.env.BackupBucket,
+                    Key: s3Key
+                }, function(err, data) {
+                    assert.ifError(err, 'no S3 error for ' + JSON.stringify(key));
+                    if (!data) return next();
+                    assert.ok(data.Body, 'got S3 object for ' + JSON.stringify(key));
+
+                    var found = JSON.parse(data.Body.toString());
+                    assert.deepEqual(found, record, 'expected item modified on S3 for ' + JSON.stringify(key));
+                    next();
+                });
+            });
+        });
+
+        q.defer(function(next) {
+            var id = crypto.createHash('md5')
+                .update(JSON.stringify({ id: { S: 'record-1' } }))
+                .digest('hex');
+
+            s3.getObject({
+                Bucket: process.env.BackupBucket,
+                Key: [process.env.BackupPrefix, table, 'record-1', id].join('/')
+            }, function(err) {
+                assert.equal(err.code, 'NoSuchKey', 'object was deleted');
+                next();
+            });
+        });
+
+        q.awaitAll(function() {
+            assert.end();
+        });
+    });
+});
+
+test('[incremental backup] adjust many with multitenancy column', function(assert) {
+    process.env.BackupPrefix = 'dynamodb-replicator/test/' + crypto.randomBytes(4).toString('hex');
+    process.env.MultiTenancyColumn = 'id'
+
+    var event = require(path.join(events, 'adjust-many.json'));
+    var table = event.Records[0].eventSourceARN.split('/')[1];
+
+    var expected = [
+        { range: { N: '22' }, id: { S: 'record-2' } },
+        { range: { N: '33' }, id: { S: 'record-3' } }
+    ];
+
+    backup(event, context, function(err) {
+        assert.ifError(err, 'success');
+        var q = queue();
+
+        expected.forEach(function(record) {
+            q.defer(function(next) {
+                var key = { id: record.id };
+                var id = crypto.createHash('md5')
+                    .update(JSON.stringify(key))
+                    .digest('hex');
+
+                var mtCol = record.id.S;
+                var s3Key = [process.env.BackupPrefix, table, mtCol, id].join('/');
+
+                s3.getObject({
+                    Bucket: process.env.BackupBucket,
+                    Key: s3Key
+                }, function(err, data) {
+                    assert.ifError(err, 'no S3 error for ' + JSON.stringify(key));
+                    if (!data) return next();
+                    assert.ok(data.Body, 'got S3 object for ' + JSON.stringify(key));
+
+                    var found = JSON.parse(data.Body.toString());
+                    assert.deepEqual(found, record, 'expected item modified on S3 for ' + JSON.stringify(key));
+                    next();
+                });
+            });
+        });
+
+        q.defer(function(next) {
+            var id = crypto.createHash('md5')
+                .update(JSON.stringify({ id: { S: 'record-1' } }))
+                .digest('hex');
+
+            s3.getObject({
+                Bucket: process.env.BackupBucket,
+                Key: [process.env.BackupPrefix, table, 'record-1', id].join('/')
+            }, function(err) {
+                assert.equal(err.code, 'NoSuchKey', 'object was deleted');
+                next();
+            });
+        });
+
+        q.awaitAll(function() {
+            assert.end();
+            delete process.env.MultiTenancyColumn;
+        });
+    });    
+});
+
+test('[incremental backup] adjust many with hash key used as filename', function(assert) {
+    process.env.BackupPrefix = 'dynamodb-replicator/test/' + crypto.randomBytes(4).toString('hex');
+    process.env.PlainTextKeyAsFilename = true;
+
+    var event = require(path.join(events, 'adjust-many.json'));
+    var table = event.Records[0].eventSourceARN.split('/')[1];
+
+    var expected = [
+        { range: { N: '22' }, id: { S: 'record-2' } },
+        { range: { N: '33' }, id: { S: 'record-3' } }
+    ];
+
+    backup(event, context, function(err) {
+        assert.ifError(err, 'success');
+        var q = queue();
+
+        expected.forEach(function(record) {
+            q.defer(function(next) {
+                var key = { id: record.id };
+                var id = record.id.S;
+
+                var s3Key = [process.env.BackupPrefix, table, id].join('/');
+
+                s3.getObject({
+                    Bucket: process.env.BackupBucket,
+                    Key: s3Key
+                }, function(err, data) {
+                    assert.ifError(err, 'no S3 error for ' + JSON.stringify(key));
+                    if (!data) return next();
+                    assert.ok(data.Body, 'got S3 object for ' + JSON.stringify(key));
+
+                    var found = JSON.parse(data.Body.toString());
+                    assert.deepEqual(found, record, 'expected item modified on S3 for ' + JSON.stringify(key));
+                    next();
+                });
+            });
+        });
+
+        q.defer(function(next) {
+            var id = 'record-1';
+
+            s3.getObject({
+                Bucket: process.env.BackupBucket,
+                Key: [process.env.BackupPrefix, table, id].join('/')
+            }, function(err) {
+                assert.equal(err.code, 'NoSuchKey', 'object was deleted');
+                next();
+            });
+        });
+
+        q.awaitAll(function() {
+            assert.end();
+            delete process.env.PlainTextKeyAsFilename;
+        });
+    });
+
+});
+
+test('[incremental backup] adjust many with hash and range keys used as filename', function(assert) {
+    process.env.BackupPrefix = 'dynamodb-replicator/test/' + crypto.randomBytes(4).toString('hex');
+    process.env.PlainTextKeyAsFilename = true;
+
+    var event = require(path.join(events, 'adjust-many-multi-key.json'));
+    var table = event.Records[0].eventSourceARN.split('/')[1];
+
+    var expected = [
+        { range: { N: '2' }, id: { S: 'record-2' }, 'blah': { 'S': 'Another property here' } },
+        { range: { N: '3' }, id: { S: 'record-3' }, 'blah': { 'S': 'Another property over there' } }
+    ];
+
+    backup(event, context, function(err) {
+        assert.ifError(err, 'success');
+        var q = queue();
+
+        expected.forEach(function(record) {
+            q.defer(function(next) {
+                var key = { id: record.id };
+                var id = record.id.S + ' | ' + record.range.N;
+
+                var s3Key = [process.env.BackupPrefix, table, id].join('/');
+
+                s3.getObject({
+                    Bucket: process.env.BackupBucket,
+                    Key: s3Key
+                }, function(err, data) {
+                    assert.ifError(err, 'no S3 error for ' + JSON.stringify(key));
+                    if (!data) return next();
+                    assert.ok(data.Body, 'got S3 object for ' + JSON.stringify(key));
+
+                    var found = JSON.parse(data.Body.toString());
+                    assert.deepEqual(found, record, 'expected item modified on S3 for ' + JSON.stringify(key));
+                    next();
+                });
+            });
+        });
+
+        q.defer(function(next) {
+            var id = 'record-1 | 1';
+
+            s3.getObject({
+                Bucket: process.env.BackupBucket,
+                Key: [process.env.BackupPrefix, table, id].join('/')
+            }, function(err) {
+                assert.equal(err.code, 'NoSuchKey', 'object was deleted');
+                next();
+            });
+        });
+
+        q.awaitAll(function() {
+            assert.end();
+            delete process.env.PlainTextKeyAsFilename;
+        });
+    });
+
+});
+
 replica.close();
