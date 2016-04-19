@@ -40,7 +40,7 @@ dynamodb.test('backup-table shell script', primaryItems, function(assert) {
             queue()
                 .defer(function(next) {
                     s3.getObject({
-                        Bucket: 'mapbox',
+                        Bucket: 'pageup-mapbox',
                         Key: 'dynamodb-replicator/test/' + jobid + '/0'
                     }, function(err, data) {
                         assert.ifError(err, 'S3 getObject success');

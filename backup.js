@@ -3,13 +3,17 @@ var Dyno = require('dyno');
 var stream = require('stream');
 var zlib = require('zlib');
 
-module.exports = function(config, done) {
+module.exports = function(config, context, done) {
+    function next(err) {
+        if (err) return done(err);
+        done(null, { size: size, count: count });
+    }
+
     var primary = Dyno(config);
     var s3 = new AWS.S3();
 
     var log = config.log || console.log;
-    var scanOpts = config.hasOwnProperty('segment') && config.segments ?
-        { Segment: config.segment, TotalSegments: config.segments } : undefined;
+    var scanOpts = config.hasOwnProperty('segment') && config.segments ? { Segment: config.segment, TotalSegments: config.segments } : undefined;
 
     if (config.backup)
         if (!config.backup.bucket || !config.backup.prefix || !config.backup.jobid)
@@ -33,9 +37,9 @@ module.exports = function(config, done) {
 
     var data = primary.scanStream(scanOpts)
         .on('error', next)
-      .pipe(stringify)
+        .pipe(stringify)
         .on('error', next)
-      .pipe(zlib.createGzip());
+        .pipe(zlib.createGzip());
 
     log('[segment %s] Starting backup job %s of %s', index, config.backup.jobid, config.region + '/' + config.table);
 
@@ -53,8 +57,5 @@ module.exports = function(config, done) {
         size = progress.total;
     });
 
-    function next(err) {
-        if (err) return done(err);
-        done(null, { size: size, count: count });
-    }
+
 };

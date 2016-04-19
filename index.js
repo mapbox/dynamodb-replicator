@@ -9,11 +9,12 @@ module.exports.streambotReplicate = streambot(replicate);
 module.exports.backup = incrementalBackup;
 module.exports.streambotBackup = streambot(incrementalBackup);
 
-process.env.BackupBucket = 'dynamo-incremental-backups'
-process.env.BackupPrefix = 'forms.blue'
-process.env.MultiTenancyColumn = 'InstanceId'
+// process.env.BackupBucket = 'dynamo-incremental-backups'
+// process.env.BackupPrefix = 'forms.blue'
+// process.env.MultiTenancyColumn = 'InstanceId'
+//process.env.PlainTextKeyAsFilename = true;
 
-function replicate(event, callback) {
+function replicate(event, context, callback) {
     var replicaConfig = {
         table: process.env.ReplicaTable,
         region: process.env.ReplicaRegion,
@@ -75,8 +76,10 @@ function replicate(event, callback) {
 
             if (errs) {
                 var messages = errs
-                    .filter(function(err) { return !!err; })
-                    .map(function(err) { return err.message; })
+                    .filter(function(err) {
+                        return !!err; })
+                    .map(function(err) {
+                        return err.message; })
                     .join(' | ');
                 console.log('[error] %s', messages);
                 return callback(errs);
@@ -128,7 +131,6 @@ function incrementalBackup(event, context, callback) {
 
         changes.forEach(function(change) {
             q.defer(function(next) {
-
                 var id;
                 if (process.env.PlainTextKeyAsFilename) {
                     id = '';
@@ -142,42 +144,30 @@ function incrementalBackup(event, context, callback) {
                     });
                 } else {
                     id = crypto.createHash('md5')
-                var id;
-                if (process.env.PlainTextKeyAsFilename) {
-                    id = '';
-                    Object.keys(change.dynamodb.Keys).sort().forEach(function(current) {
-                        if (id !== '')
-                            id += ' | ';
-
-                        var key = change.dynamodb.Keys[current];
-                        var value = key[Object.keys(key)[0]];                        
-                        id += value;
-                    });
-                } else {
-                    id = crypto.createHash('md5')
-                var id = crypto.createHash('md5')
                     .update(JSON.stringify(change.dynamodb.Keys))
                     .digest('hex');
+                }
 
                 var table = change.eventSourceARN.split('/')[1];
-                var key = [process.env.BackupPrefix, table, id].join('/');
-
+                var key;
                 if (process.env.MultiTenancyColumn) {
                     var mtCol;
                     if (change.dynamodb.NewImage)
                         mtCol = change.dynamodb.NewImage[process.env.MultiTenancyColumn];
                     else
-                        mtCol = change.dynamodb.OldImage[process.env.MultiTenancyColumn];                        
+                        mtCol = change.dynamodb.OldImage[process.env.MultiTenancyColumn];
 
-                    if (!mtCol) {                        
+                    if (!mtCol) {
                         var message = '[error] MultiTenancyColumn %s does not exist.';
                         console.log(message, process.env.MultiTenancyColumn);
                         return next(message);
                     }
                     var mtColDt = Object.keys(mtCol)[0];
                     key = [process.env.BackupPrefix, table, mtCol[mtColDt], id].join('/');
+                } else {
+                    key = [process.env.BackupPrefix, table, id].join('/');
                 }
-
+                
                 var params = {
                     Bucket: process.env.BackupBucket,
                     Key: key
