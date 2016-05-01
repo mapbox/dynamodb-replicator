@@ -15,7 +15,7 @@ module.exports = function(config, done) {
 
     var s3Options = {
         httpOptions: {
-            timeout: 1000,
+            timeout: 5000,
             agent: new AgentKeepAlive.HttpsAgent({
                 keepAlive: true,
                 maxSockets: 256,
@@ -68,7 +68,6 @@ module.exports = function(config, done) {
     );
 
     objStream.pipe(stringify).pipe(gzip);
-
     upload.send(function(err) {
         if (err) return done(err);
 
