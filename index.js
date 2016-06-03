@@ -47,7 +47,7 @@ function replicate(event, callback) {
 
     (function batchWrite(requestSet, attempts) {
         requestSet.forEach(function(req) {
-            req.on('retry', function(res) {
+            if (req) req.on('retry', function(res) {
                 if (!res.error || !res.httpResponse || !res.httpResponse.headers) return;
                 if (res.error.name === 'TimeoutError') res.error.retryable = true;
                 console.log(
