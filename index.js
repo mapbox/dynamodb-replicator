@@ -9,11 +9,6 @@ module.exports.streambotReplicate = streambot(replicate);
 module.exports.backup = incrementalBackup;
 module.exports.streambotBackup = streambot(incrementalBackup);
 
-// process.env.BackupBucket = 'dynamo-incremental-backups'
-// process.env.BackupPrefix = 'forms.blue'
-// process.env.MultiTenancyColumn = 'InstanceId'
-//process.env.PlainTextKeyAsFilename = true;
-
 function replicate(event, context, callback) {
     var replicaConfig = {
         table: process.env.ReplicaTable,
@@ -174,7 +169,11 @@ function incrementalBackup(event, context, callback) {
                 };
 
                 var req = change.eventName === 'REMOVE' ? 'deleteObject' : 'putObject';
-                if (req === 'putObject') params.Body = JSON.stringify(change.dynamodb.NewImage);
+
+                if (req === 'putObject') {
+                    params.Body = JSON.stringify(change.dynamodb.NewImage);
+                    params.ACL = 'bucket-owner-full-control';
+                }
 
                 s3[req](params, function(err) {
                     if (err) console.log(

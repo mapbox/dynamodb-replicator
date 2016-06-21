@@ -46,7 +46,8 @@ module.exports = function(config, context, done) {
     s3.upload({
         Bucket: config.backup.bucket,
         Key: key,
-        Body: data
+        Body: data,
+        ACL: 'bucket-owner-full-control'
     }, function(err) {
         if (err) return next(err);
         log('[segment %s] Uploaded dynamo backup to s3://%s/%s', index, config.backup.bucket, key);

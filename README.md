@@ -16,6 +16,14 @@ Managing table redundancy and backups involves many moving parts. Please read [D
 
 [dynamodb-replicator](https://github.com/mapbox/dynamodb-replicator) provides several CLI tools to help manage your DynamoDB table.
 
+### Config and Packaging
+
+For windows users: a powershell script is available to packing the lambda function with all the packages it needs.
+
+```
+> npm install
+> .\package.ps1
+
 ### diff-record
 
 Given two tables and an item's key, this script looks up the record in both tables and checks for consistency.

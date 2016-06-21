@@ -47,7 +47,8 @@ module.exports = function(config, done) {
     var upload = s3.upload({
         Bucket: config.destination.bucket,
         Key: config.destination.key,
-        Body: gzip
+        Body: gzip,
+        ACL: 'bucket-owner-full-control'
     }).on('httpUploadProgress', function(details) {
         if (details.part !== partsLoaded) {
             log(
