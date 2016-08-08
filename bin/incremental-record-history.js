@@ -75,7 +75,7 @@ s3url.Key = [
         .digest('hex')
 ].join('/');
 
-var q = queue();
+var q = queue(100);
 q.awaitAll(function(err, results) {
     if (err) throw err;
     if (!results.length) return;
@@ -86,13 +86,14 @@ q.awaitAll(function(err, results) {
     });
 });
 
-(function listVersions(next) {
+(function listVersions(nextVersion, nextKey) {
     var params = {
         Bucket: s3url.Bucket,
         Prefix: s3url.Key
     };
 
-    if (next) params.VersionIdMarker = next;
+    if (nextVersion) params.VersionIdMarker = nextVersion;
+    if (nextKey) params.KeyMarker = nextKey;
 
     s3.listObjectVersions(params, function(err, data) {
         if (err) throw err;
@@ -127,6 +128,6 @@ q.awaitAll(function(err, results) {
         });
 
         if (data.IsTruncated && data.NextVersionIdMarker)
-            return listVersions(data.NextVersionIdMarker);
+            return listVersions(data.NextVersionIdMarker, data.NextKeyMarker);
     });
 })();
