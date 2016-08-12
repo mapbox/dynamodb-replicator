@@ -10,6 +10,7 @@ function usage() {
     console.error('Usage: diff-tables primary-region/primary-table replica-region/replica-table');
     console.error('');
     console.error('Options:');
+    console.error('  --local      perform on local dynamo. Usage: diff-tables 127.0.0.1:80/primary-table ...');
     console.error('  --repair     perform actions to fix discrepancies in the replica table');
     console.error('  --segment    segment identifier (0-based)');
     console.error('  --segments   total number of segments');
@@ -43,15 +44,31 @@ var jobid = crypto.randomBytes(8).toString('hex');
 var format = '[${timestamp}] [${level}] [${category}] [' + jobid + ']';
 var log = fastlog('diff-tables', 'info', format);
 
-var config = {
-    primary: {
+if (args.local){
+    var primary = {
+        region: 'local',
+        endpoint:primary[0],
+        table: primary[1]
+    };
+    var replica = {
+        region: 'local',
+        endpoint: replica[0],
+        table: replica[1]
+    };
+} else {
+    var primary = {
         region: primary[0],
         table: primary[1]
-    },
-    replica: {
+    };
+    var replica = {
         region: replica[0],
         table: replica[1]
-    },
+    };
+}
+
+var config = {
+    primary: primary,
+    replica:replica,
     repair: !!args.repair,
     segment: args.segment,
     segments: args.segments,
