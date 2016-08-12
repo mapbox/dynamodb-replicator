@@ -37,8 +37,8 @@ if (!replica) {
     process.exit(1);
 }
 
-primary = primary.split('/');
-replica = replica.split('/');
+primary.split('/');
+replica.split('/');
 
 var jobid = crypto.randomBytes(8).toString('hex');
 var format = '[${timestamp}] [${level}] [${category}] [' + jobid + ']';
@@ -47,12 +47,12 @@ var log = fastlog('diff-tables', 'info', format);
 if (args.local){
     var primary = {
         region: 'local',
-        endpoint:primary[0],
+        endpoint:'http://' + primary[0],
         table: primary[1]
     };
     var replica = {
         region: 'local',
-        endpoint: replica[0],
+        endpoint: 'http://' + replica[0],
         table: replica[1]
     };
 } else {
