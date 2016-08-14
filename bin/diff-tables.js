@@ -37,8 +37,8 @@ if (!replica) {
     process.exit(1);
 }
 
-primary.split('/');
-replica.split('/');
+primary = primary.split('/');
+replica = replica.split('/');
 
 var jobid = crypto.randomBytes(8).toString('hex');
 var format = '[${timestamp}] [${level}] [${category}] [' + jobid + ']';
