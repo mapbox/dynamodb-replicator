@@ -4,7 +4,7 @@
 
 This replication system is built such that there is a **primary** table and a **replica** table. All writes are performed against the primary table, and changes made to the primary table are pushed to the replica table. Reads can be performed against either the primary or replica table.
 
-[Dyno](https://github.com/mapbox/dyno), the client that we use for interactions with DynamoDB can be [configured to read from one table and write to another](https://github.com/mapbox/dyno#multi--kinesisconfig). The primary table has a DynaoDB stream associated with it, while the replica table does not need to.
+[Dyno](https://github.com/mapbox/dyno), the client that we use for interactions with DynamoDB can be [configured to read from one table and write to another](https://github.com/mapbox/dyno#multi--kinesisconfig). The primary table has a DynamoDB stream associated with it, while the replica table does not need to.
 
 Replication is performed via an [AWS Lambda function](https://github.com/mapbox/dynamodb-replicator/blob/master/index.js) which reads from the primary table's DynamoDB stream and duplicates changes onto the replica table.
 
