@@ -11,6 +11,8 @@ module.exports.streambotBackup = streambot(incrementalBackup);
 
 function replicate(event, callback) {
     var replicaConfig = {
+        accessKeyId: process.env.ReplicaAccessKeyId || undefined,
+        secretAccessKey: process.env.ReplicaSecretAccessKey || undefined,
         table: process.env.ReplicaTable,
         region: process.env.ReplicaRegion,
         maxRetries: 1000,
