@@ -48,15 +48,15 @@ var format = '[${timestamp}] [${level}] [${category}] [' + jobid + ']';
 var log = fastlog('diff-tables', 'info', format);
 
 if (regex.test(primary[0])){
-    var primary = {region: 'local', endpoint:'http://' + primary[0], table: primary[1]};
+    primary = {region: 'local', endpoint:'http://' + primary[0], table: primary[1]};
 } else {
-    var primary = {region: primary[0], table: primary[1]};
+    primary = {region: primary[0], table: primary[1]};
 }
 
 if (regex.test(replica[0])) {
-    var replica = {region: 'local', endpoint: 'http://' + replica[0], table: replica[1]};
+    replica = {region: 'local', endpoint: 'http://' + replica[0], table: replica[1]};
 } else { 
-    var replica = {region: replica[0], table: replica[1]};
+    replica = {region: replica[0], table: replica[1]};
 }
 
 var config = {
