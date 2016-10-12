@@ -4,10 +4,7 @@ var diff = require('../diff');
 var fastlog = require('fastlog');
 var args = require('minimist')(process.argv.slice(2));
 var crypto = require('crypto');
-
-// Regex to find IP address and port
-// ex.: 127.0.0.1:80 or localhost:80
-var regex = new RegExp('(\\b(?:[0-9]{1,3}\\.){3}[0-9]{1,3}\\b:[0-9]+)|(localhost:[0-9]+)', 'i');
+var parse_location = require('./parse-location')
 
 function usage() {
     console.error('');
@@ -47,17 +44,9 @@ var jobid = crypto.randomBytes(8).toString('hex');
 var format = '[${timestamp}] [${level}] [${category}] [' + jobid + ']';
 var log = fastlog('diff-tables', 'info', format);
 
-if (regex.test(primary[0])){
-    primary = {region: 'local', endpoint:'http://' + primary[0], table: primary[1]};
-} else {
-    primary = {region: primary[0], table: primary[1]};
-}
-
-if (regex.test(replica[0])) {
-    replica = {region: 'local', endpoint: 'http://' + replica[0], table: replica[1]};
-} else { 
-    replica = {region: replica[0], table: replica[1]};
-}
+locations = parse_location.parse(primary, replica)
+primary = locations[0]
+replica = locations[1]
 
 var config = {
     primary: primary,
