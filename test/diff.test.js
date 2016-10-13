@@ -5,7 +5,7 @@ var diff = require('../diff');
 var util = require('util');
 var _ = require('underscore');
 var crypto = require('crypto');
-var parse_location = require('../bin/parse-location')
+var parse_location = require('../parse-location')
 
 var primaryItems = [
     {hash: 'hash1', range: 'range1', other:1},
@@ -241,7 +241,7 @@ test('diff: parsing locations', function(assert) {
     // Testing with local region and endpoint URL
     primary = '127.0.0.1:8000/table1', replica = 'localhost:8000/table2';
     primary = primary.split('/'), replica = replica.split('/');
-    locations = parse_location.parse(primary, replica);
+    var locations = parse_location.parse(primary, replica);
     primary = locations[0], replica = locations[1];
     assert.ok(primary['endpoint']=='http://127.0.0.1:8000' && primary['region']=='local', 
         'got region and endpoint from local ip');
