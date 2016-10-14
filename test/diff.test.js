@@ -5,6 +5,7 @@ var diff = require('../diff');
 var util = require('util');
 var _ = require('underscore');
 var crypto = require('crypto');
+var parse_location = require('../parse-location')
 
 var primaryItems = [
     {hash: 'hash1', range: 'range1', other:1},
@@ -235,3 +236,26 @@ test('diff: parallel', function(assert) {
 primary.delete();
 replica.delete();
 primary.close();
+
+test('diff: parsing locations', function(assert) {
+    // Testing with local region and endpoint URL
+    primary = '127.0.0.1:8000/table1', replica = 'localhost:8000/table2';
+    primary = primary.split('/'), replica = replica.split('/');
+    var locations = parse_location.parse(primary, replica);
+    primary = locations[0], replica = locations[1];
+    assert.ok(primary['endpoint']=='http://127.0.0.1:8000' && primary['region']=='local', 
+        'got region and endpoint from local ip');
+    assert.ok(replica['endpoint']=='http://localhost:8000' && replica['region']=='local', 
+        'got region and endpoint from localhost');
+
+    // Testing with valid AWS region (Using Beijing region)
+    primary = 'cn-north-1/table1', replica = 'cn-north-1/table2';
+    primary = primary.split('/'), replica = replica.split('/');
+    locations = parse_location.parse(primary, replica);
+    primary = locations[0], replica = locations[1];
+    assert.ok(primary['endpoint']==null && primary['region']=='cn-north-1' && primary['table']=='table1', 
+        'got endpoint, region and table from AWS region');
+    assert.ok(replica['endpoint']==null && replica['region']=='cn-north-1' && replica['table']=='table2', 
+        'got endpoint, region and table from AWS region');
+    assert.end()
+});

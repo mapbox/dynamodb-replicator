@@ -4,6 +4,7 @@ var diff = require('../diff');
 var fastlog = require('fastlog');
 var args = require('minimist')(process.argv.slice(2));
 var crypto = require('crypto');
+var parse_location = require('../parse-location')
 
 function usage() {
     console.error('');
@@ -43,15 +44,13 @@ var jobid = crypto.randomBytes(8).toString('hex');
 var format = '[${timestamp}] [${level}] [${category}] [' + jobid + ']';
 var log = fastlog('diff-tables', 'info', format);
 
+var locations = parse_location.parse(primary, replica)
+primary = locations[0]
+replica = locations[1]
+
 var config = {
-    primary: {
-        region: primary[0],
-        table: primary[1]
-    },
-    replica: {
-        region: replica[0],
-        table: replica[1]
-    },
+    primary: primary,
+    replica:replica,
     repair: !!args.repair,
     segment: args.segment,
     segments: args.segments,
