@@ -8,6 +8,7 @@ module.exports.replicate = replicate;
 module.exports.streambotReplicate = streambot(replicate);
 module.exports.backup = incrementalBackup;
 module.exports.streambotBackup = streambot(incrementalBackup);
+module.exports.snapshot = require('./s3-snapshot');
 
 function replicate(event, callback) {
     var replicaConfig = {
