@@ -69,7 +69,7 @@ dynamodb.test('backup-table shell script', primaryItems, function(assert) {
                             return next();
                         }
                         assert.equal(data.Datapoints.length, 1, 'BackupSize put to CW');
-                        assert.equal(data.Datapoints[0].Sum, 98, 'Correct BackupSize value on CW');
+                        assert.equal(data.Datapoints[0].Sum, 99, 'Correct BackupSize value on CW');
                         next();
                     });
                 })
