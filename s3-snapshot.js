@@ -40,8 +40,10 @@ module.exports = function(config, done) {
     var stringify = new stream.Transform();
     stringify._writableState.objectMode = true;
     stringify._transform = function(data, enc, callback) {
-        if (!data) return callback();
-        callback(null, data.Body.toString() + '\n');
+        if (!data) return setImmediate(callback);
+        setImmediate(function() {
+            callback(null, data.Body.toString() + '\n');
+        });
     };
 
     var upload = s3.upload({
