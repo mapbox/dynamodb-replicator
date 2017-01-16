@@ -23,6 +23,7 @@ For windows users: a powershell script is available to packing the lambda functi
 ```
 > npm install
 > .\package.ps1
+```
 
 ### diff-record
 
