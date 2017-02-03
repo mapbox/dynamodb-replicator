@@ -1,6 +1,6 @@
 {
   "name": "@mapbox/dynamodb-replicator",
-  "version": "8.2.3-1",
+  "version": "8.2.3-2",
   "description": "",
   "main": "index.js",
   "scripts": {
