@@ -32,7 +32,7 @@ process.env.ReplicaEndpoint = 'http://localhost:4567';
 process.env.AWS_ACCESS_KEY_ID = 'mock';
 process.env.AWS_SECRET_ACCESS_KEY = 'mock';
 process.env.BackupBucket = 'mapbox';
-process.env.AuditLog = 'false';
+process.env.AuditLog = 'Disabled';
 
 test('[agent] use http agent for replication tests', function(assert) {
     streambot.agent = require('http').globalAgent;
@@ -81,7 +81,7 @@ replica.test('[replicate] confirm audit logs dont run when off', function(assert
 });
 
 replica.test('[replicate] confirm audit logs run when on', function(assert) {
-    process.env.AuditLog = 'true';
+    process.env.AuditLog = 'Enabled';
     var event = require(path.join(events, 'insert-modify-delete.json'));
     var holdLog = console.log;
     var calls = [];
@@ -89,7 +89,7 @@ replica.test('[replicate] confirm audit logs run when on', function(assert) {
         calls.push(Array.from(arguments));
     };
     replicate(event, function(err) {
-        process.env.AuditLog = 'false';
+        process.env.AuditLog = 'Disabled';
         console.log = holdLog;
         if (err) return assert.end(err);
 
