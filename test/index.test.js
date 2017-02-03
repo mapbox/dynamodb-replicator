@@ -31,6 +31,7 @@ process.env.ReplicaEndpoint = 'http://localhost:4567';
 process.env.AWS_ACCESS_KEY_ID = 'mock';
 process.env.AWS_SECRET_ACCESS_KEY = 'mock';
 process.env.BackupBucket = 'mapbox';
+process.env.AuditLog = 'false';
 
 test('[agent] use http agent for replication tests', function(assert) {
     streambot.agent = require('http').globalAgent;
@@ -58,6 +59,45 @@ replica.test('[replicate] insert & modify', function(assert) {
             assert.deepEqual(data, { Count: 1, Items: [{ id: 'record-1', range: 2 }], ScannedCount: 1 }, 'inserted & modified desired record');
             assert.end();
         });
+    });
+});
+
+replica.test('[replicate] confirm audit logs dont run when off', function(assert) {
+    var event = require(path.join(events, 'insert-modify-delete.json'));
+    var holdLog = console.log;
+    var calls = [];
+    console.log = function() {
+        calls.push(Array.from(arguments));
+    };
+    replicate(event, function(err) {
+        console.log = holdLog;
+        if (err) return assert.end(err);
+
+        calls = calls.filter(c => c[0] === '[replication-audit] %s %s KEY: %s');
+        assert.equal(calls.length, 0, 'nothing called console.log');
+        assert.end();
+    });
+});
+
+replica.test('[replicate] confirm audit logs run when on', function(assert) {
+    process.env.AuditLog = 'true';
+    var event = require(path.join(events, 'insert-modify-delete.json'));
+    var holdLog = console.log;
+    var calls = [];
+    console.log = function() {
+        calls.push(Array.from(arguments));
+    };
+    replicate(event, function(err) {
+        process.env.AuditLog = 'false';
+        console.log = holdLog;
+        if (err) return assert.end(err);
+
+        calls = calls.filter(c => c[0] === '[replication-audit] %s %s KEY: %s');
+        assert.equal(calls.length, event.Records.length, 'the right number of calls were made');
+        var first = calls[0].reduce((str, info) => str.replace('%s', info));
+        first = first.replace(replica.tableName, '{table_name}');
+        assert.equal(first, '[replication-audit] {table_name} INSERT KEY: {"id":{"S":"record-1"}}');
+        assert.end();
     });
 });
 
