@@ -32,7 +32,7 @@ function replicate(event, callback) {
         var id = JSON.stringify(change.dynamodb.Keys);
         allRecords[id] = allRecords[id] || [];
         allRecords[id].push(change);
-        if (process.env.AuditLog === 'true') console.log('[replication-audit] %s %s KEY: %s', process.env.ReplicaTable, change.eventName, id);
+        if (process.env.AuditLog === 'true') console.log('[replication-audit] %s %s KEY: %s', process.env.PrimaryTable, change.eventName, id);
         return allRecords;
     }, {});
 

@@ -25,6 +25,7 @@ var dyno = Dyno({
     endpoint: 'http://localhost:4567'
 });
 
+process.env.PrimaryTable = 'primary-table';
 process.env.ReplicaTable = replica.tableName;
 process.env.ReplicaRegion = 'mock';
 process.env.ReplicaEndpoint = 'http://localhost:4567';
@@ -95,8 +96,7 @@ replica.test('[replicate] confirm audit logs run when on', function(assert) {
         calls = calls.filter(c => c[0] === '[replication-audit] %s %s KEY: %s');
         assert.equal(calls.length, event.Records.length, 'the right number of calls were made');
         var first = calls[0].reduce((str, info) => str.replace('%s', info));
-        first = first.replace(replica.tableName, '{table_name}');
-        assert.equal(first, '[replication-audit] {table_name} INSERT KEY: {"id":{"S":"record-1"}}');
+        assert.equal(first, '[replication-audit] primary-table INSERT KEY: {"id":{"S":"record-1"}}');
         assert.end();
     });
 });
