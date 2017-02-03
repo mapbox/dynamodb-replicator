@@ -11,6 +11,7 @@ module.exports.streambotBackup = streambot(incrementalBackup);
 module.exports.snapshot = require('./s3-snapshot');
 
 function replicate(event, callback) {
+
     var replicaConfig = {
         accessKeyId: process.env.ReplicaAccessKeyId || undefined,
         secretAccessKey: process.env.ReplicaSecretAccessKey || undefined,
@@ -31,6 +32,7 @@ function replicate(event, callback) {
         var id = JSON.stringify(change.dynamodb.Keys);
         allRecords[id] = allRecords[id] || [];
         allRecords[id].push(change);
+        if (process.env.AuditLog === 'Enabled') console.log('[replication-audit] %s %s KEY: %s', process.env.PrimaryTable, change.eventName, id);
         return allRecords;
     }, {});
 
