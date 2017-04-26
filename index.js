@@ -59,7 +59,10 @@ function replicate(event, context, callback) {
         return allRecords;
     }, {});
 
-    if (count === 0) return callback(null, 'No records replicated');
+    if (count === 0) {
+        console.log('No records replicated');
+        return callback();
+    }
 
     var params = { RequestItems: {} };
     params.RequestItems[process.env.ReplicaTable] = Object.keys(allRecords).map(function(key) {
@@ -113,7 +116,8 @@ function replicate(event, context, callback) {
                 return setTimeout(batchWrite, Math.pow(2, attempts), unprocessed, attempts);
             }
 
-            callback(null, 'Replicated ' + count + ' records');
+            console.log('Replicated ' + count + ' records');
+            callback();
         });
     })(replica.batchWriteItemRequests(params), 0);
 }
@@ -143,7 +147,10 @@ function incrementalBackup(event, context, callback) {
         return allRecords;
     }, {});
 
-    if (count === 0) return callback(null, 'No records backed up');
+    if (count === 0) {
+        console.log('No records backed up');
+        return callback();
+    }
 
     var params = {
         maxRetries: 1000,
@@ -210,7 +217,8 @@ function incrementalBackup(event, context, callback) {
 
         q.awaitAll(function(err) {
             if (err) return callback(err);
-            callback(null, 'Backed up ' + count + ' records');
+            console.log('Backed up ' + count + ' records')
+            callback();
         });
     }
 }
