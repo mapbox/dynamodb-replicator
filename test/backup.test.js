@@ -8,6 +8,8 @@ var s3 = new AWS.S3();
 var queue = require('queue-async');
 var zlib = require('zlib');
 
+var context = {};
+
 var primaryItems = [
     {hash: 'hash1', range: 'range1', other:1},
     {hash: 'hash1', range: 'range2', other:2},
@@ -27,7 +29,7 @@ dynamodb.start();
 dynamodb.test('backup: one segment', primaryItems, function(assert) {
     var config = {
         backup: {
-            bucket: 'mapbox',
+            bucket: 'pageup-mapbox',
             prefix: 'dynamodb-replicator/test',
             jobid: crypto.randomBytes(4).toString('hex')
         },
@@ -38,7 +40,7 @@ dynamodb.test('backup: one segment', primaryItems, function(assert) {
         endpoint: 'http://localhost:4567'
     };
 
-    backup(config, function(err, details) {
+    backup(config, context, function(err, details) {
         assert.ifError(err, 'backup completed');
         if (err) return assert.end();
 
@@ -46,7 +48,7 @@ dynamodb.test('backup: one segment', primaryItems, function(assert) {
         assert.equal(details.size, 98, 'reported 98 bytes');
 
         s3.getObject({
-            Bucket: 'mapbox',
+            Bucket: 'pageup-mapbox',
             Key: [config.backup.prefix, config.backup.jobid, '0'].join('/')
         }, function(err, data) {
             assert.ifError(err, 'retrieved backup from S3');
@@ -72,12 +74,12 @@ dynamodb.test('backup: one segment', primaryItems, function(assert) {
 dynamodb.test('backup: parallel', records, function(assert) {
     var config = {
         backup: {
-            bucket: 'mapbox',
+            bucket: 'pageup-mapbox',
             prefix: 'dynamodb-replicator/test',
             jobid: crypto.randomBytes(4).toString('hex')
         },
         table: dynamodb.tableName,
-        region: 'us-east-1',
+        region: 'ap-southeast-2',
         accessKeyId: 'fake',
         secretAccessKey: 'fake',
         endpoint: 'http://localhost:4567',
@@ -90,10 +92,10 @@ dynamodb.test('backup: parallel', records, function(assert) {
     var secondKey = [config.backup.prefix, config.backup.jobid, secondConfig.segment].join('/');
 
     queue(1)
-        .defer(backup, firstConfig)
-        .defer(backup, secondConfig)
-        .defer(s3.getObject.bind(s3), { Bucket: 'mapbox', Key: firstKey })
-        .defer(s3.getObject.bind(s3), { Bucket: 'mapbox', Key: secondKey })
+        .defer(backup, firstConfig, context)
+        .defer(backup, secondConfig, context)
+        .defer(s3.getObject.bind(s3), { Bucket: 'pageup-mapbox', Key: firstKey })
+        .defer(s3.getObject.bind(s3), { Bucket: 'pageup-mapbox', Key: secondKey })
         .awaitAll(function(err, results) {
             assert.ifError(err, 'all requests completed');
             if (err) return assert.end();

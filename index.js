@@ -10,7 +10,7 @@ module.exports.backup = incrementalBackup;
 module.exports.streambotBackup = streambot(incrementalBackup);
 module.exports.snapshot = require('./s3-snapshot');
 
-function replicate(event, callback) {
+function replicate(event, context, callback) {
     var replicaConfig = {
         accessKeyId: process.env.ReplicaAccessKeyId || undefined,
         secretAccessKey: process.env.ReplicaSecretAccessKey || undefined,
@@ -74,8 +74,10 @@ function replicate(event, callback) {
 
             if (errs) {
                 var messages = errs
-                    .filter(function(err) { return !!err; })
-                    .map(function(err) { return err.message; })
+                    .filter(function(err) {
+                        return !!err; })
+                    .map(function(err) {
+                        return err.message; })
                     .join(' | ');
                 console.log('[error] %s', messages);
                 return callback(errs);
@@ -91,7 +93,7 @@ function replicate(event, callback) {
     })(replica.batchWriteItemRequests(params), 0);
 }
 
-function incrementalBackup(event, callback) {
+function incrementalBackup(event, context, callback) {
     var allRecords = event.Records.reduce(function(allRecords, action) {
         var id = JSON.stringify(action.dynamodb.Keys);
 
@@ -118,7 +120,7 @@ function incrementalBackup(event, callback) {
     });
 
     q.awaitAll(function(err) {
-        if (err) throw err;
+        if (err) callback(err);
         callback();
     });
 
@@ -127,19 +129,54 @@ function incrementalBackup(event, callback) {
 
         changes.forEach(function(change) {
             q.defer(function(next) {
-                var id = crypto.createHash('md5')
+                var id;
+                if (process.env.PlainTextKeyAsFilename) {
+                    id = '';
+                    Object.keys(change.dynamodb.Keys).sort().forEach(function(current) {
+                        if (id !== '')
+                            id += ' | ';
+
+                        var key = change.dynamodb.Keys[current];
+                        var value = key[Object.keys(key)[0]];                        
+                        id += value;
+                    });
+                } else {
+                    id = crypto.createHash('md5')
                     .update(JSON.stringify(change.dynamodb.Keys))
                     .digest('hex');
+                }
 
                 var table = change.eventSourceARN.split('/')[1];
+                var key;
+                if (process.env.MultiTenancyColumn) {
+                    var mtCol;
+                    if (change.dynamodb.NewImage)
+                        mtCol = change.dynamodb.NewImage[process.env.MultiTenancyColumn];
+                    else
+                        mtCol = change.dynamodb.OldImage[process.env.MultiTenancyColumn];
 
+                    if (!mtCol) {
+                        var message = '[error] MultiTenancyColumn %s does not exist.';
+                        console.log(message, process.env.MultiTenancyColumn);
+                        return next(message);
+                    }
+                    var mtColDt = Object.keys(mtCol)[0];
+                    key = [process.env.BackupPrefix, table, mtCol[mtColDt], id].join('/');
+                } else {
+                    key = [process.env.BackupPrefix, table, id].join('/');
+                }
+                
                 var params = {
                     Bucket: process.env.BackupBucket,
-                    Key: [process.env.BackupPrefix, table, id].join('/')
+                    Key: key
                 };
 
                 var req = change.eventName === 'REMOVE' ? 'deleteObject' : 'putObject';
-                if (req === 'putObject') params.Body = JSON.stringify(change.dynamodb.NewImage);
+
+                if (req === 'putObject') {
+                    params.Body = JSON.stringify(change.dynamodb.NewImage);
+                    params.ACL = 'bucket-owner-full-control';
+                }
 
                 s3[req](params, function(err) {
                     if (err) console.log(
