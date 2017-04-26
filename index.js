@@ -123,6 +123,18 @@ function replicate(event, context, callback) {
 }
 
 function incrementalBackup(event, context, callback) {
+    var params = {
+        maxRetries: 1000,
+        httpOptions: {
+            timeout: 1000,
+            agent: module.exports.agent
+        }
+    };
+
+    if (process.env.BackupRegion) params.region = process.env.BackupRegion;
+
+    var s3 = new AWS.S3(params);
+    
     var filterer;
     if (process.env.TurnoverRole && process.env.TurnoverAt) {
         // Filterer function should return true if the record SHOULD be processed
@@ -152,17 +164,6 @@ function incrementalBackup(event, context, callback) {
         return callback();
     }
 
-    var params = {
-        maxRetries: 1000,
-        httpOptions: {
-            timeout: 1000,
-            agent: module.exports.agent
-        }
-    };
-
-    if (process.env.BackupRegion) params.region = process.env.BackupRegion;
-
-    var s3 = new AWS.S3(params);
     var q = queue();
 
     Object.keys(allRecords).forEach(function(key) {
