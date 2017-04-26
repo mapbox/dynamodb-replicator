@@ -42,11 +42,13 @@ function replicate(event, context, callback) {
         };
     }
 
+    var count = 0;
     var allRecords = event.Records.reduce(function(allRecords, change) {
         if (filterer && !filterer(change)) return allRecords;
         var id = JSON.stringify(change.dynamodb.Keys);
         allRecords[id] = allRecords[id] || [];
         allRecords[id].push(change);
+        count++;
         return allRecords;
     }, {});
 
@@ -102,7 +104,7 @@ function replicate(event, context, callback) {
                 return setTimeout(batchWrite, Math.pow(2, attempts), unprocessed, attempts);
             }
 
-            callback();
+            callback(null, 'Replicated ' + count + ' records');
         });
     })(replica.batchWriteItemRequests(params), 0);
 }
@@ -120,6 +122,7 @@ function incrementalBackup(event, context, callback) {
         };
     }
 
+    var count = 0;
     var allRecords = event.Records.reduce(function(allRecords, action) {
         if (filterer && !filterer(action)) return allRecords;
 
@@ -127,6 +130,7 @@ function incrementalBackup(event, context, callback) {
 
         allRecords[id] = allRecords[id] || [];
         allRecords[id].push(action);
+        count++;
         return allRecords;
     }, {});
 
@@ -193,6 +197,9 @@ function incrementalBackup(event, context, callback) {
             });
         });
 
-        q.awaitAll(callback);
+        q.awaitAll(function(err) {
+            if (err) return callback(err);
+            callback(null, 'Backed up ' + count + ' records');
+        });
     }
 }
