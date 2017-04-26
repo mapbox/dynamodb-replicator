@@ -1,16 +1,19 @@
 var AWS = require('aws-sdk');
 var Dyno = require('dyno');
 var queue = require('queue-async');
-var streambot = require('streambot');
 var crypto = require('crypto');
+var https = require('https');
 
 module.exports.replicate = replicate;
-module.exports.streambotReplicate = streambot(replicate);
 module.exports.backup = incrementalBackup;
-module.exports.streambotBackup = streambot(incrementalBackup);
 module.exports.snapshot = require('./s3-snapshot');
+module.exports.agent = new https.Agent({
+    keepAlive: true,
+    maxSockets: Math.ceil(require('os').cpus().length * 16),
+    keepAliveMsecs: 60000
+})
 
-function replicate(event, callback) {
+function replicate(event, context, callback) {
     var replicaConfig = {
         accessKeyId: process.env.ReplicaAccessKeyId || undefined,
         secretAccessKey: process.env.ReplicaSecretAccessKey || undefined,
@@ -19,7 +22,7 @@ function replicate(event, callback) {
         maxRetries: 1000,
         httpOptions: {
             timeout: 750,
-            agent: streambot.agent
+            agent: module.exports.agent
         }
     };
     if (process.env.ReplicaEndpoint) replicaConfig.endpoint = process.env.ReplicaEndpoint;
@@ -91,7 +94,7 @@ function replicate(event, callback) {
     })(replica.batchWriteItemRequests(params), 0);
 }
 
-function incrementalBackup(event, callback) {
+function incrementalBackup(event, context, callback) {
     var allRecords = event.Records.reduce(function(allRecords, action) {
         var id = JSON.stringify(action.dynamodb.Keys);
 
@@ -104,7 +107,7 @@ function incrementalBackup(event, callback) {
         maxRetries: 1000,
         httpOptions: {
             timeout: 1000,
-            agent: streambot.agent
+            agent: module.exports.agent
         }
     };
 

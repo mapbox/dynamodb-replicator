@@ -2,8 +2,8 @@
 
 [dynamodb-replicator](https://github.com/mapbox/dynamodb-replicator) offers several different mechanisms to manage redundancy and recoverability on [DynamoDB](http://aws.amazon.com/documentation/dynamodb) tables.
 
-- A **replicator** function that processes events from a DynamoDB stream, replaying changes made to the primary table and onto a replica table. The function is designed to be run as an [AWS Lambda function](http://aws.amazon.com/documentation/lambda/), optionally with deployment assistance from [streambot](https://github.com/mapbox/streambot).
-- An **incremental backup** function that processes events from a DynamoDB stream, replaying them as writes to individual objects on S3. The function is designed to be run as an [AWS Lambda function](http://aws.amazon.com/documentation/lambda/), optionally with deployment assistance from [streambot](https://github.com/mapbox/streambot).
+- A **replicator** function that processes events from a DynamoDB stream, replaying changes made to the primary table and onto a replica table. The function is designed to be run as an [AWS Lambda function](http://aws.amazon.com/documentation/lambda/).
+- An **incremental backup** function that processes events from a DynamoDB stream, replaying them as writes to individual objects on S3. The function is designed to be run as an [AWS Lambda function](http://aws.amazon.com/documentation/lambda/).
 - A **consistency check** script that scans the primary table and checks that each individual record in the replica table is up-to-date. The goal is to double-check that the replicator is performing as is should, and the two tables are completely consistent.
 - A **table dump** script that scans a single table, and writes the data to a file on S3, providing a snapshot of the table's state.
 - A **snapshot** script that scans an S3 folder where incremental backups have been made, and writes the aggregate to a file on S3, providing a snapshot of the backup's state.
@@ -181,7 +181,7 @@ Usage: incremental-record-history <tableinfo> <s3url> <recordkey>
  - tableinfo: the table where the record lives, specified as `region/tablename`
  - s3url: s3 folder where the incremental backups live. Table name will be appended
  - recordkey: the key for the record specified as a JSON object
- 
+
 # Read the history of a single record
 $ incremental-record-history us-east-1/my-table s3://dynamodb-backups/incremental '{"id":"abc"}'
 ```

@@ -1,17 +1,27 @@
 var Dyno = require('dyno');
 var AWS = require('aws-sdk');
-var s3 = new AWS.S3({
-    maxRetries: 1000,
-    httpOptions: {
-        timeout: 1000,
-        agent: require('streambot').agent
-    }
-});
 var stream = require('stream');
 var queue = require('queue-async');
 var crypto = require('crypto');
+var https = require('https');
 
-module.exports = function(config, done) {
+module.exports = backfill;
+
+module.exports.agent = new https.Agent({
+    keepAlive: true,
+    maxSockets: Math.ceil(require('os').cpus().length * 16),
+    keepAliveMsecs: 60000
+});
+
+function backfill(config, done) {
+    var s3 = new AWS.S3({
+        maxRetries: 1000,
+        httpOptions: {
+            timeout: 1000,
+            agent: module.exports.agent
+        }
+    });
+
     var primary = Dyno(config);
 
     if (config.backup)
@@ -85,4 +95,4 @@ module.exports = function(config, done) {
             done(null, { count: count });
         }
     });
-};
+}
