@@ -30,7 +30,20 @@ function replicate(event, context, callback) {
 
     var keyAttrs = Object.keys(event.Records[0].dynamodb.Keys);
 
+    var filterer;
+    if (process.env.TurnoverRole && process.env.TurnoverAt) {
+        // Filterer function should return true if the record SHOULD be processed
+        filterer = function(record) {
+            var created = Number(record.dynamodb.ApproximateCreationDateTime + '000');
+            var turnoverAt = Number(process.env.TurnoverAt);
+            if (process.env.TurnoverRole === 'BEFORE') return created < turnoverAt;
+            else if (process.env.TurnoverRole === 'AFTER') return created >= turnoverAt;
+            else return true;
+        };
+    }
+
     var allRecords = event.Records.reduce(function(allRecords, change) {
+        if (filterer && !filterer(change)) return allRecords;
         var id = JSON.stringify(change.dynamodb.Keys);
         allRecords[id] = allRecords[id] || [];
         allRecords[id].push(change);
