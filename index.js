@@ -1,16 +1,26 @@
 var AWS = require('aws-sdk');
 var Dyno = require('dyno');
 var queue = require('queue-async');
-var streambot = require('streambot');
 var crypto = require('crypto');
+var https = require('https');
+var streambot = require('streambot');
 
 module.exports.replicate = replicate;
-module.exports.streambotReplicate = streambot(replicate);
+module.exports.streambotReplicate = streambot(function(event, callback) {
+    replicate(event, {}, callback);
+});
 module.exports.backup = incrementalBackup;
-module.exports.streambotBackup = streambot(incrementalBackup);
+module.exports.streambotBackup = streambot(function(event, callback) {
+    incrementalBackup(event, {}, callback);
+});
 module.exports.snapshot = require('./s3-snapshot');
+module.exports.agent = new https.Agent({
+    keepAlive: true,
+    maxSockets: Math.ceil(require('os').cpus().length * 16),
+    keepAliveMsecs: 60000
+})
 
-function replicate(event, callback) {
+function replicate(event, context, callback) {
     var replicaConfig = {
         accessKeyId: process.env.ReplicaAccessKeyId || undefined,
         secretAccessKey: process.env.ReplicaSecretAccessKey || undefined,
@@ -19,7 +29,7 @@ function replicate(event, callback) {
         maxRetries: 1000,
         httpOptions: {
             timeout: 750,
-            agent: streambot.agent
+            agent: module.exports.agent
         }
     };
     if (process.env.ReplicaEndpoint) replicaConfig.endpoint = process.env.ReplicaEndpoint;
@@ -27,12 +37,32 @@ function replicate(event, callback) {
 
     var keyAttrs = Object.keys(event.Records[0].dynamodb.Keys);
 
+    var filterer;
+    if (process.env.TurnoverRole && process.env.TurnoverAt) {
+        // Filterer function should return true if the record SHOULD be processed
+        filterer = function(record) {
+            var created = Number(record.dynamodb.ApproximateCreationDateTime + '000');
+            var turnoverAt = Number(process.env.TurnoverAt);
+            if (process.env.TurnoverRole === 'BEFORE') return created < turnoverAt;
+            else if (process.env.TurnoverRole === 'AFTER') return created >= turnoverAt;
+            else return true;
+        };
+    }
+
+    var count = 0;
     var allRecords = event.Records.reduce(function(allRecords, change) {
+        if (filterer && !filterer(change)) return allRecords;
         var id = JSON.stringify(change.dynamodb.Keys);
         allRecords[id] = allRecords[id] || [];
         allRecords[id].push(change);
+        count++;
         return allRecords;
     }, {});
+
+    if (count === 0) {
+        console.log('No records replicated');
+        return callback();
+    }
 
     var params = { RequestItems: {} };
     params.RequestItems[process.env.ReplicaTable] = Object.keys(allRecords).map(function(key) {
@@ -86,31 +116,54 @@ function replicate(event, callback) {
                 return setTimeout(batchWrite, Math.pow(2, attempts), unprocessed, attempts);
             }
 
+            console.log('Replicated ' + count + ' records');
             callback();
         });
     })(replica.batchWriteItemRequests(params), 0);
 }
 
-function incrementalBackup(event, callback) {
-    var allRecords = event.Records.reduce(function(allRecords, action) {
-        var id = JSON.stringify(action.dynamodb.Keys);
-
-        allRecords[id] = allRecords[id] || [];
-        allRecords[id].push(action);
-        return allRecords;
-    }, {});
-
+function incrementalBackup(event, context, callback) {
     var params = {
         maxRetries: 1000,
         httpOptions: {
             timeout: 1000,
-            agent: streambot.agent
+            agent: module.exports.agent
         }
     };
 
     if (process.env.BackupRegion) params.region = process.env.BackupRegion;
 
     var s3 = new AWS.S3(params);
+    
+    var filterer;
+    if (process.env.TurnoverRole && process.env.TurnoverAt) {
+        // Filterer function should return true if the record SHOULD be processed
+        filterer = function(record) {
+            var created = Number(record.dynamodb.ApproximateCreationDateTime + '000');
+            var turnoverAt = Number(process.env.TurnoverAt);
+            if (process.env.TurnoverRole === 'BEFORE') return created < turnoverAt;
+            else if (process.env.TurnoverRole === 'AFTER') return created >= turnoverAt;
+            else return true;
+        };
+    }
+
+    var count = 0;
+    var allRecords = event.Records.reduce(function(allRecords, action) {
+        if (filterer && !filterer(action)) return allRecords;
+
+        var id = JSON.stringify(action.dynamodb.Keys);
+
+        allRecords[id] = allRecords[id] || [];
+        allRecords[id].push(action);
+        count++;
+        return allRecords;
+    }, {});
+
+    if (count === 0) {
+        console.log('No records backed up');
+        return callback();
+    }
+
     var q = queue();
 
     Object.keys(allRecords).forEach(function(key) {
@@ -163,6 +216,10 @@ function incrementalBackup(event, callback) {
             });
         });
 
-        q.awaitAll(callback);
+        q.awaitAll(function(err) {
+            if (err) return callback(err);
+            console.log('Backed up ' + count + ' records')
+            callback();
+        });
     }
 }

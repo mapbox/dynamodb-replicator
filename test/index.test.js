@@ -1,12 +1,11 @@
 var test = require('tape');
-var streambot = require('streambot');
-var HttpsAgent = streambot.agent;
 var tableDef = require('./fixtures/table');
 var DynamoDB = require('dynamodb-test');
 var replica = DynamoDB(test, 'mapbox-replicator', tableDef);
 var Dyno = require('dyno');
 var path = require('path');
 var events = path.resolve(__dirname, 'fixtures', 'events');
+var main = require('..');
 var replicate = require('..').replicate;
 var backup = require('..').backup;
 var _ = require('underscore');
@@ -32,14 +31,16 @@ process.env.AWS_ACCESS_KEY_ID = 'mock';
 process.env.AWS_SECRET_ACCESS_KEY = 'mock';
 process.env.BackupBucket = 'mapbox';
 
+var httpsAgent;
 test('[agent] use http agent for replication tests', function(assert) {
-    streambot.agent = require('http').globalAgent;
+    httpsAgent = main.agent;
+    main.agent = require('http').globalAgent;
     assert.end();
 });
 
 replica.test('[replicate] insert', function(assert) {
     var event = require(path.join(events, 'insert.json'));
-    replicate(event, function(err) {
+    replicate(event, {}, function(err) {
         assert.ifError(err, 'success');
         dyno.scan(function(err, data) {
             if (err) throw err;
@@ -51,7 +52,7 @@ replica.test('[replicate] insert', function(assert) {
 
 replica.test('[replicate] insert & modify', function(assert) {
     var event = require(path.join(events, 'insert-modify.json'));
-    replicate(event, function(err) {
+    replicate(event, {}, function(err) {
         assert.ifError(err, 'success');
         dyno.scan(function(err, data) {
             if (err) throw err;
@@ -63,7 +64,7 @@ replica.test('[replicate] insert & modify', function(assert) {
 
 replica.test('[replicate] insert, modify & delete', function(assert) {
     var event = require(path.join(events, 'insert-modify-delete.json'));
-    replicate(event, function(err) {
+    replicate(event, {}, function(err) {
         assert.ifError(err, 'success');
         dyno.scan(function(err, data) {
             if (err) throw err;
@@ -75,7 +76,7 @@ replica.test('[replicate] insert, modify & delete', function(assert) {
 
 replica.test('[replicate] adjust many', function(assert) {
     var event = require(path.join(events, 'adjust-many.json'));
-    replicate(event, function(err) {
+    replicate(event, {}, function(err) {
         assert.ifError(err, 'success');
         dyno.scan(function(err, data) {
             if (err) throw err;
@@ -101,7 +102,7 @@ replica.test('[replicate] adjust many', function(assert) {
 
 replica.test('[lambda] insert with buffers', function(assert) {
     var event = require(path.join(events, 'insert-buffer.json'));
-    replicate(event, function(err) {
+    replicate(event, {}, function(err) {
         assert.ifError(err, 'success');
         dyno.scan(function(err, data) {
             if (err) throw err;
@@ -129,7 +130,7 @@ replica.test('[lambda] insert with buffers', function(assert) {
 });
 
 test('[agent] return agent to normal', function(assert) {
-    streambot.agent = HttpsAgent;
+    main.agent = httpsAgent;
     assert.end();
 });
 
@@ -142,7 +143,7 @@ test('[incremental backup] configurable region', function(assert) {
         assert.equal(config.region, 'fake', 'configured region on S3 client');
     };
 
-    backup({ Records: [] }, function(err) {
+    backup({ Records: [] }, {}, function(err) {
         assert.ifError(err, 'backup success');
         AWS.S3 = S3;
         delete process.env.BackupRegion;
@@ -158,7 +159,7 @@ test('[incremental backup] insert', function(assert) {
         .update(JSON.stringify(event.Records[0].dynamodb.Keys))
         .digest('hex');
 
-    backup(event, function(err) {
+    backup(event, {}, function(err) {
         assert.ifError(err, 'success');
 
         s3.getObject({
@@ -185,7 +186,7 @@ test('[incremental backup] insert & modify', function(assert) {
         .update(JSON.stringify(event.Records[0].dynamodb.Keys))
         .digest('hex');
 
-    backup(event, function(err) {
+    backup(event, {}, function(err) {
         assert.ifError(err, 'success');
 
         s3.getObject({
@@ -212,7 +213,7 @@ test('[incremental backup] insert, modify & delete', function(assert) {
         .update(JSON.stringify(event.Records[0].dynamodb.Keys))
         .digest('hex');
 
-    backup(event, function(err) {
+    backup(event, {}, function(err) {
         assert.ifError(err, 'success');
 
         s3.getObject({
@@ -236,7 +237,7 @@ test('[incremental backup] adjust many', function(assert) {
         { range: { N: '33' }, id: { S: 'record-3' } }
     ];
 
-    backup(event, function(err) {
+    backup(event, {}, function(err) {
         assert.ifError(err, 'success');
         var q = queue();
 
