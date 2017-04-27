@@ -3,16 +3,9 @@ var Dyno = require('dyno');
 var queue = require('queue-async');
 var crypto = require('crypto');
 var https = require('https');
-var streambot = require('streambot');
 
 module.exports.replicate = replicate;
-module.exports.streambotReplicate = streambot(function(event, callback) {
-    replicate(event, {}, callback);
-});
 module.exports.backup = incrementalBackup;
-module.exports.streambotBackup = streambot(function(event, callback) {
-    incrementalBackup(event, {}, callback);
-});
 module.exports.snapshot = require('./s3-snapshot');
 module.exports.agent = new https.Agent({
     keepAlive: true,
@@ -37,21 +30,8 @@ function replicate(event, context, callback) {
 
     var keyAttrs = Object.keys(event.Records[0].dynamodb.Keys);
 
-    var filterer;
-    if (process.env.TurnoverRole && process.env.TurnoverAt) {
-        // Filterer function should return true if the record SHOULD be processed
-        filterer = function(record) {
-            var created = Number(record.dynamodb.ApproximateCreationDateTime + '000');
-            var turnoverAt = Number(process.env.TurnoverAt);
-            if (process.env.TurnoverRole === 'BEFORE') return created < turnoverAt;
-            else if (process.env.TurnoverRole === 'AFTER') return created >= turnoverAt;
-            else return true;
-        };
-    }
-
     var count = 0;
     var allRecords = event.Records.reduce(function(allRecords, change) {
-        if (filterer && !filterer(change)) return allRecords;
         var id = JSON.stringify(change.dynamodb.Keys);
         allRecords[id] = allRecords[id] || [];
         allRecords[id].push(change);
@@ -134,23 +114,9 @@ function incrementalBackup(event, context, callback) {
     if (process.env.BackupRegion) params.region = process.env.BackupRegion;
 
     var s3 = new AWS.S3(params);
-    
-    var filterer;
-    if (process.env.TurnoverRole && process.env.TurnoverAt) {
-        // Filterer function should return true if the record SHOULD be processed
-        filterer = function(record) {
-            var created = Number(record.dynamodb.ApproximateCreationDateTime + '000');
-            var turnoverAt = Number(process.env.TurnoverAt);
-            if (process.env.TurnoverRole === 'BEFORE') return created < turnoverAt;
-            else if (process.env.TurnoverRole === 'AFTER') return created >= turnoverAt;
-            else return true;
-        };
-    }
 
     var count = 0;
     var allRecords = event.Records.reduce(function(allRecords, action) {
-        if (filterer && !filterer(action)) return allRecords;
-
         var id = JSON.stringify(action.dynamodb.Keys);
 
         allRecords[id] = allRecords[id] || [];
