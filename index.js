@@ -28,7 +28,7 @@ function replicate(event, context, callback) {
         region: process.env.ReplicaRegion,
         maxRetries: 1000,
         httpOptions: {
-            timeout: process.env.ReplicaTimeout || 750,
+            timeout: parseInt(process.env.ReplicaTimeout) || 750,
             agent: module.exports.agent
         }
     };
