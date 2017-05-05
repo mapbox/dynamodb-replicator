@@ -40,6 +40,8 @@ module.exports = function(config, done) {
     log('[segment %s] Starting backup job %s of %s', index, config.backup.jobid, config.region + '/' + config.table);
 
     s3.upload({
+        ServerSideEncryption: process.env.ServerSideEncryption || 'AES256',
+        SSEKMSKeyId: process.env.SSEKMSKeyId,
         Bucket: config.backup.bucket,
         Key: key,
         Body: data
