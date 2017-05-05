@@ -29,7 +29,6 @@ process.env.ReplicaRegion = 'mock';
 process.env.ReplicaEndpoint = 'http://localhost:4567';
 process.env.AWS_ACCESS_KEY_ID = 'mock';
 process.env.AWS_SECRET_ACCESS_KEY = 'mock';
-process.env.BackupBucket = 'mapbox';
 
 var httpsAgent;
 test('[agent] use http agent for replication tests', function(assert) {

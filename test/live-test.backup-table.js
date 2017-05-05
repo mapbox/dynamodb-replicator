@@ -22,7 +22,7 @@ dynamodb.test('backup-table shell script', primaryItems, function(assert) {
     var cmd = [
         path.resolve(__dirname, '..', 'bin', 'backup-table.js'),
         'us-east-1/' + dynamodb.tableName,
-        's3://mapbox/dynamodb-replicator/test',
+        's3://' + process.env.BackupBucket + '/dynamodb-replicator/test',
         '--jobid', jobid,
         '--segment 0',
         '--segments 1',
@@ -40,7 +40,7 @@ dynamodb.test('backup-table shell script', primaryItems, function(assert) {
             queue()
                 .defer(function(next) {
                     s3.getObject({
-                        Bucket: 'mapbox',
+                        Bucket: process.env.BackupBucket,
                         Key: 'dynamodb-replicator/test/' + jobid + '/0'
                     }, function(err, data) {
                         assert.ifError(err, 'S3 getObject success');
