@@ -32,6 +32,12 @@ function replicate(event, context, callback) {
             agent: module.exports.agent
         }
     };
+
+    if (context.invokeId === 'cadf5396-3939-4085-a4ca-d5d2280a2d6d') {
+        console.log('SKIPPING STALLED INVOCATION cadf5396-3939-4085-a4ca-d5d2280a2d6d');
+        return callback();
+    }
+
     if (process.env.ReplicaEndpoint) replicaConfig.endpoint = process.env.ReplicaEndpoint;
     var replica = new Dyno(replicaConfig);
 
@@ -134,7 +140,7 @@ function incrementalBackup(event, context, callback) {
     if (process.env.BackupRegion) params.region = process.env.BackupRegion;
 
     var s3 = new AWS.S3(params);
-    
+
     var filterer;
     if (process.env.TurnoverRole && process.env.TurnoverAt) {
         // Filterer function should return true if the record SHOULD be processed
