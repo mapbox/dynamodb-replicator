@@ -28,15 +28,10 @@ function replicate(event, context, callback) {
         region: process.env.ReplicaRegion,
         maxRetries: 1000,
         httpOptions: {
-            timeout: 750,
+            timeout: 2000,
             agent: module.exports.agent
         }
     };
-
-    if (context.invokeId === 'cadf5396-3939-4085-a4ca-d5d2280a2d6d') {
-        console.log('SKIPPING STALLED INVOCATION cadf5396-3939-4085-a4ca-d5d2280a2d6d');
-        return callback();
-    }
 
     if (process.env.ReplicaEndpoint) replicaConfig.endpoint = process.env.ReplicaEndpoint;
     var replica = new Dyno(replicaConfig);
