@@ -28,10 +28,11 @@ function replicate(event, context, callback) {
         region: process.env.ReplicaRegion,
         maxRetries: 1000,
         httpOptions: {
-            timeout: 750,
+            timeout: 2000,
             agent: module.exports.agent
         }
     };
+
     if (process.env.ReplicaEndpoint) replicaConfig.endpoint = process.env.ReplicaEndpoint;
     var replica = new Dyno(replicaConfig);
 
@@ -134,7 +135,7 @@ function incrementalBackup(event, context, callback) {
     if (process.env.BackupRegion) params.region = process.env.BackupRegion;
 
     var s3 = new AWS.S3(params);
-    
+
     var filterer;
     if (process.env.TurnoverRole && process.env.TurnoverAt) {
         // Filterer function should return true if the record SHOULD be processed
