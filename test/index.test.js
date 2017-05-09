@@ -44,7 +44,7 @@ replica.test('[replicate] insert', function(assert) {
         assert.ifError(err, 'success');
         dyno.scan(function(err, data) {
             if (err) throw err;
-            assert.deepEqual(data, { Count: 1, Items: [{ id: 'record-1', range: 1 }], ScannedCount: 1 }, 'inserted desired record');
+            assert.deepEqual(data, { Count: 1, Items: [{ id: 'record-1', arange: 1 }], ScannedCount: 1 }, 'inserted desired record');
             assert.end();
         });
     });
@@ -56,7 +56,7 @@ replica.test('[replicate] insert & modify', function(assert) {
         assert.ifError(err, 'success');
         dyno.scan(function(err, data) {
             if (err) throw err;
-            assert.deepEqual(data, { Count: 1, Items: [{ id: 'record-1', range: 2 }], ScannedCount: 1 }, 'inserted & modified desired record');
+            assert.deepEqual(data, { Count: 1, Items: [{ id: 'record-1', arange: 1, data: 'data-2' }], ScannedCount: 1 }, 'inserted & modified desired record');
             assert.end();
         });
     });
@@ -82,8 +82,8 @@ replica.test('[replicate] adjust many', function(assert) {
             if (err) throw err;
 
             var expected = [
-                { range: 22, id: 'record-2' },
-                { range: 33, id: 'record-3' }
+                { data: 'data-2', arange: 1, id: 'record-2' },
+                { data: 'data-2', arange: 1, id: 'record-3' }
             ];
 
             data = data.Items.map(Dyno.serialize);
@@ -108,7 +108,7 @@ replica.test('[lambda] insert with buffers', function(assert) {
             if (err) throw err;
 
             var expected = {
-                range: 1,
+                arange: 1,
                 id: 'record-1',
                 val: new Buffer('hello'),
                 map: { prop: new Buffer('hello') },
@@ -118,7 +118,7 @@ replica.test('[lambda] insert with buffers', function(assert) {
 
             data = data.Items[0];
 
-            assert.equal(data.range, expected.range, 'expected range');
+            assert.equal(data.arange, expected.arange, 'expected range');
             assert.equal(data.id, expected.id, 'expected id');
             assert.deepEqual(data.val, expected.val, 'expected val');
             assert.deepEqual(data.map, expected.map, 'expected map');
@@ -156,7 +156,8 @@ test('[incremental backup] insert', function(assert) {
     var event = require(path.join(events, 'insert.json'));
     var table = event.Records[0].eventSourceARN.split('/')[1];
     var id = crypto.createHash('md5')
-        .update(JSON.stringify(event.Records[0].dynamodb.Keys))
+        // key names here must be in alphabetical order to match impl which is expected to sort them
+        .update(JSON.stringify({ arange: { N: '1'}, id: { S: 'record-1' } }))
         .digest('hex');
 
     backup(event, {}, function(err) {
@@ -170,7 +171,7 @@ test('[incremental backup] insert', function(assert) {
             assert.ok(data.Body, 'got S3 object');
 
             var found = JSON.parse(data.Body.toString());
-            var expected = { range: { N:'1' }, id: { S: 'record-1' } };
+            var expected = { arange: { N:'1' }, id: { S: 'record-1' } };
             assert.deepEqual(found, expected, 'expected item put to S3');
             assert.end();
         });
@@ -183,7 +184,8 @@ test('[incremental backup] insert & modify', function(assert) {
     var event = require(path.join(events, 'insert-modify.json'));
     var table = event.Records[0].eventSourceARN.split('/')[1];
     var id = crypto.createHash('md5')
-        .update(JSON.stringify(event.Records[0].dynamodb.Keys))
+        // key names here must be in alphabetical order to match impl which is expected to sort them
+        .update(JSON.stringify({ arange: { N: '1'}, id: { S: 'record-1' } }))
         .digest('hex');
 
     backup(event, {}, function(err) {
@@ -197,7 +199,7 @@ test('[incremental backup] insert & modify', function(assert) {
             assert.ok(data.Body, 'got S3 object');
 
             var found = JSON.parse(data.Body.toString());
-            var expected = { range: { N:'2' }, id: { S: 'record-1' } };
+            var expected = { data: { S: 'data-2' }, arange: { N:'1' }, id: { S: 'record-1' } };
             assert.deepEqual(found, expected, 'expected item modified on S3');
             assert.end();
         });
@@ -210,7 +212,8 @@ test('[incremental backup] insert, modify & delete', function(assert) {
     var event = require(path.join(events, 'insert-modify-delete.json'));
     var table = event.Records[0].eventSourceARN.split('/')[1];
     var id = crypto.createHash('md5')
-        .update(JSON.stringify(event.Records[0].dynamodb.Keys))
+        // key names here must be in alphabetical order to match impl which is expected to sort them
+        .update(JSON.stringify({ arange: { N: '1'}, id: { S: 'record-1' } }))
         .digest('hex');
 
     backup(event, {}, function(err) {
@@ -233,8 +236,8 @@ test('[incremental backup] adjust many', function(assert) {
     var table = event.Records[0].eventSourceARN.split('/')[1];
 
     var expected = [
-        { range: { N: '22' }, id: { S: 'record-2' } },
-        { range: { N: '33' }, id: { S: 'record-3' } }
+        { data: { S: 'data-2' }, arange: { N: '1' }, id: { S: 'record-2' } },
+        { data: { S: 'data-2' }, arange: { N: '1' }, id: { S: 'record-3' } }
     ];
 
     backup(event, {}, function(err) {
@@ -243,7 +246,8 @@ test('[incremental backup] adjust many', function(assert) {
 
         expected.forEach(function(record) {
             q.defer(function(next) {
-                var key = { id: record.id };
+                // key names here must be in alphabetical order to match impl which is expected to sort them
+                var key = { arange: record.arange, id: record.id };
                 var id = crypto.createHash('md5')
                     .update(JSON.stringify(key))
                     .digest('hex');
