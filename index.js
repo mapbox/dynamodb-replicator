@@ -181,8 +181,13 @@ function incrementalBackup(event, context, callback) {
 
         changes.forEach(function(change) {
             q.defer(function(next) {
+                var unordered = change.dynamodb.Keys;
+                var ordered = Object.keys(unordered).sort().reduce(function (ordered, key) {
+                    ordered[key] = unordered[key];
+                    return ordered
+                }, {});
                 var id = crypto.createHash('md5')
-                    .update(JSON.stringify(change.dynamodb.Keys))
+                    .update(JSON.stringify(ordered))
                     .digest('hex');
 
                 var table = change.eventSourceARN.split('/')[1];
