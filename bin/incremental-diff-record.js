@@ -2,7 +2,7 @@
 
 var minimist = require('minimist');
 var s3urls = require('s3urls');
-var Dyno = require('dyno');
+var Dyno = require('@mapbox/dyno');
 var crypto = require('crypto');
 var AWS = require('aws-sdk');
 var s3 = new AWS.S3();

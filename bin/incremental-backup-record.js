@@ -2,7 +2,7 @@
 
 var minimist = require('minimist');
 var s3urls = require('s3urls');
-var Dyno = require('dyno');
+var Dyno = require('@mapbox/dyno');
 var backup = require('..').backup;
 
 var args = minimist(process.argv.slice(2));

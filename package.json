@@ -30,11 +30,11 @@
   "homepage": "https://github.com/mapbox/dynamodb-replicator",
   "dependencies": {
     "@mapbox/dyno": "^1.4.1",
+    "@mapbox/s3scan": "^1.0.0",
     "aws-sdk": "^2.50.0",
     "d3-queue": "^3.0.7",
     "fastlog": "^1.1.0",
     "minimist": "^1.2.0",
-    "s3scan": "^0.2.3",
     "s3urls": "^1.5.2",
     "split": "^1.0.0",
     "underscore": "^1.8.3"
