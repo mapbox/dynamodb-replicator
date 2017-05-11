@@ -4,7 +4,7 @@ var AWS = require('aws-sdk');
 var args = require('minimist')(process.argv.slice(2));
 var s3urls = require('s3urls');
 var fastlog = require('fastlog');
-var snapshot = require('../s3-snapshot');
+var snapshot = require('../lib/s3-snapshot');
 var fs = require('fs');
 var path = require('path');
 

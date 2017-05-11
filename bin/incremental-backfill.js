@@ -2,7 +2,7 @@
 
 var args = require('minimist')(process.argv.slice(2));
 var s3urls = require('s3urls');
-var backfill = require('../s3-backfill');
+var backfill = require('../lib/s3-backfill');
 
 function usage() {
     console.error('');

@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 
-var diff = require('../diff');
+var diff = require('../lib/diff');
 var fastlog = require('fastlog');
 var args = require('minimist')(process.argv.slice(2));
 var crypto = require('crypto');
-var parse_location = require('../parse-location')
+var parse_location = require('../lib/parse-location');
 
 function usage() {
     console.error('');

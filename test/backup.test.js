@@ -1,6 +1,6 @@
 var test = require('tape');
 var dynamodb = require('dynamodb-test')(test, 'dynamodb-replicator', require('./table.json'))
-var backup = require('../backup');
+var backup = require('../lib/backup');
 var _ = require('underscore');
 var crypto = require('crypto');
 var AWS = require('aws-sdk');

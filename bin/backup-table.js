@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-var backup = require('../backup');
+var backup = require('../lib/backup');
 var fastlog = require('fastlog');
 var args = require('minimist')(process.argv.slice(2));
 var crypto = require('crypto');
