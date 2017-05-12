@@ -2,10 +2,6 @@ language: node_js
 node_js:
   - 6
 sudo: false
-env:
-  global:
-  - secure: "m9pXrJEeitDYKxDQWLYW5hBRZrG3zxr2g9L8zs5CRL6D7h6xxd7qqxJW3odAOIWmlO48z0aDL7/iJLVo0fpk0KnnQrRir+D0BVftP44g7nyYQiusxxcCcrnX8mTRtMeNsFL9HuAr50/zcU9zl13zV3utt//F6JmPmxPKaImjQO4="
-  - secure: "fe9nSC6XAAdlaGUzufarmWq9UGqaFs712TFLxQ4Cwx4EW+rKNJ4+vwHTKsGm32lpxreDKxEdKm3zb7pMBLqFHCb+VIMDxDnTobMv7MIFQ8GK2irCQ+KDX15gA5322Zs5PImgI74a8zng2+7GAMjxrtsxkwETA0x37UoVMs0bzPg="
 script:
   - npm test
   - node test/live-test.backup-table.js
