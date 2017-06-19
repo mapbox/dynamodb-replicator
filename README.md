@@ -222,7 +222,7 @@ ReplicaEndpoint=
 ```
 Enable triggers for the tables on which these operations are made with view type ```New and old images - both the new and the old images of the item```. Note that the 'Triggers' option on DynamoDB tables are available based on region. Create the trigger for the existing Lambda function that we just created.
 
-For tables in which data already exists, the existing data has to be first replicated before we could do the incremental replication. Refer to [diff-tables](https://github.com/subbuvenk94/dynamodb-replicator#incremental-diff-record) for replication backfill. Similarly, for we can perform [incremental backfill](https://github.com/subbuvenk94/dynamodb-replicator#incremental-backfill).
+For tables in which data already exists, the existing data has to be first replicated before we could do the incremental replication. Refer to [diff-tables](#incremental-diff-record) for replication backfill. Similarly, for we can perform [incremental backfill](#incremental-backfill).
 
 The Lambda function would need permissions to perform the incremental backup or replication tasks. The IAM policy that should be created to award this permission could be set as:
 ```
