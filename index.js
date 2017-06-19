@@ -3,16 +3,11 @@ var Dyno = require('dyno');
 var queue = require('queue-async');
 var crypto = require('crypto');
 var https = require('https');
-var streambot = require('streambot');
 
 module.exports.replicate = replicate;
-module.exports.streambotReplicate = streambot(function(event, callback) {
-    replicate(event, {}, callback);
-});
+
 module.exports.backup = incrementalBackup;
-module.exports.streambotBackup = streambot(function(event, callback) {
-    incrementalBackup(event, {}, callback);
-});
+
 module.exports.snapshot = require('./s3-snapshot');
 module.exports.agent = new https.Agent({
     keepAlive: true,
@@ -68,6 +63,7 @@ function replicate(event, context, callback) {
     var params = { RequestItems: {} };
     params.RequestItems[process.env.ReplicaTable] = Object.keys(allRecords).map(function(key) {
         var change = allRecords[key].pop();
+        console.log('change = ', change);
         if (change.eventName === 'INSERT' || change.eventName === 'MODIFY') {
             return {
                 PutRequest: { Item: Dyno.deserialize(JSON.stringify(change.dynamodb.NewImage)) }
@@ -173,7 +169,7 @@ function incrementalBackup(event, context, callback) {
 
     q.awaitAll(function(err) {
         if (err) throw err;
-        callback();
+        callback(null, "Sucessful back up");
     });
 
     function backupRecord(changes, callback) {
@@ -193,6 +189,8 @@ function incrementalBackup(event, context, callback) {
                 };
 
                 var req = change.eventName === 'REMOVE' ? 'deleteObject' : 'putObject';
+                console.log('Event = ', change.eventName);
+                console.log('Change = ', JSON.stringify(change.dynamodb));
                 if (req === 'putObject') params.Body = JSON.stringify(change.dynamodb.NewImage);
 
                 s3[req](params, function(err) {
