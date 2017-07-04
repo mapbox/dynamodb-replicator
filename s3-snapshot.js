@@ -30,7 +30,7 @@ module.exports = function(config, done) {
     var s3 = new AWS.S3(s3Options);
 
     var size = 0;
-    var uri = joinPath('s3:/', config.source.bucket, config.source.prefix]);
+    var uri = 's3://' + joinPath(config.source.bucket, config.source.prefix);
     var partsLoaded = -1;
 
     var objStream = s3scan.Scan(uri, { s3: s3 })
