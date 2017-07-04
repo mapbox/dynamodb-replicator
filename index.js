@@ -4,6 +4,7 @@ var queue = require('queue-async');
 var crypto = require('crypto');
 var https = require('https');
 var streambot = require('streambot');
+var joinPath = require('path.join');
 
 module.exports.replicate = replicate;
 module.exports.streambotReplicate = streambot(function(event, callback) {
@@ -189,7 +190,7 @@ function incrementalBackup(event, context, callback) {
 
                 var params = {
                     Bucket: process.env.BackupBucket,
-                    Key: [process.env.BackupPrefix, table, id].join('/')
+                    Key: joinPath(process.env.BackupPrefix, table, id)
                 };
 
                 var req = change.eventName === 'REMOVE' ? 'deleteObject' : 'putObject';

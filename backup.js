@@ -2,6 +2,7 @@ var AWS = require('aws-sdk');
 var Dyno = require('dyno');
 var stream = require('stream');
 var zlib = require('zlib');
+var joinPath = require('path.join');
 
 module.exports = function(config, done) {
     var primary = Dyno(config);
@@ -16,7 +17,7 @@ module.exports = function(config, done) {
             return done(new Error('Must provide a bucket, prefix and jobid for backups'));
 
     var index = !isNaN(parseInt(config.segment)) ? config.segment.toString() : 0;
-    var key = [config.backup.prefix, config.backup.jobid, index].join('/');
+    var key = joinPath(config.backup.prefix, config.backup.jobid, index);
     var count = 0;
     var size = 0;
 
