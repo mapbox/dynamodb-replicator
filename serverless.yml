@@ -16,13 +16,13 @@ provider:
     - Effect: "Allow"
       Action:
         - "s3:ListBucket"
-      Resource: "arn:aws:s3:::orchestrated-test-dynamodb-backup"
+      Resource: "<YOUR BACKUP BUCKET NAME>"
     - Effect: "Allow"
       Action: 
         - "s3:GetObject"
         - "s3:PutObject"
         - "s3:DeleteObject"
-      Resource: "arn:aws:s3:::orchestrated-test-dynamodb-backup/*"
+      Resource: "arn:aws:s3:::<YOUR BACKUP BUCKET NAME>/*"
     - Effect: "Allow"
       Action: "lambda:InvokeFunction"
       Resource: "*"
@@ -44,18 +44,18 @@ functions:
     handler: index.backup
 
     events:
-      - stream: arn:aws:dynamodb:ap-southeast-2:619797987959:table/BackupTest/stream/2018-02-01T05:14:27.659
+      - stream: <YOUR DYNAMODB STREAM ARN>
 
     environment:
-      BackupRegion: ap-southeast-2
-      BackupBucket: orchestrated-test-dynamodb-backup
-      BackupPrefix: test
+      BackupRegion: <YOUR REGION>
+      BackupBucket: <YOUR BACKUP BUCKET NAME>
+      BackupPrefix: <YOUR PREFIX>
 
 resources:
   Resources:
     BackupBucket:
       Type: AWS::S3::Bucket
       Properties:
-        BucketName: orchestrated-test-dynamodb-backup
+        BucketName: <YOUR BACKUP BUCKET NAME>
         VersioningConfiguration:
           Status: "Enabled"
