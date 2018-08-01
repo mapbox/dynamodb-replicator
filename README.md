@@ -170,6 +170,7 @@ Usage: incremental-backup-record <tableinfo> <s3url> <recordkey>
 $ incremental-backup-record us-east-1/primary s3://dynamodb-backups/incremental '{"id":"abc"}'
 ```
 
+
 ### incremental-record-history
 
 Prints each version of a record that is available in an incremental backup folder on S3.
