@@ -46,10 +46,10 @@ module.exports = function(config, done) {
     }, function(err) {
         if (err) return next(err);
         log('[segment %s] Uploaded dynamo backup to s3://%s/%s', index, config.backup.bucket, key);
-        log('[segment %s] Wrote %s items to backup', index, count);
+        log('[segment %s] Wrote %s items to backup of %s', index, count, config.table);
         next();
     }).on('httpUploadProgress', function(progress) {
-        log('[segment %s] Uploaded %s bytes', index, progress.loaded);
+        log('[segment %s] Uploaded %s bytes of %s', index, progress.loaded, config.table);
         size = progress.total;
     });
 
