@@ -40,7 +40,7 @@ module.exports = function(config, done) {
     var stringify = new stream.Transform();
     stringify._writableState.objectMode = true;
     stringify._transform = function(data, enc, callback) {
-        if (!data) return callback();
+        if (!data || !data.Body) return callback();
         callback(null, data.Body.toString() + '\n');
     };
 
