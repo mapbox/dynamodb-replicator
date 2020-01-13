@@ -6,7 +6,10 @@
             "eventSource":"aws:dynamodb",
             "dynamodb": {
                 "NewImage":{
-                    "range": {
+                    "data": {
+                        "S": "data-1"
+                    },
+                    "arange": {
                         "N": "1"
                     },
                     "id": {
@@ -19,6 +22,9 @@
                 "Keys":{
                     "id": {
                         "S": "record-1"
+                    },
+                    "arange": {
+                        "N": "1"
                     }
                 }
             },
@@ -32,8 +38,11 @@
             "eventSource":"aws:dynamodb",
             "dynamodb": {
                 "NewImage":{
-                    "range": {
-                        "N": "11"
+                    "data": {
+                        "S": "data-2"
+                    },
+                    "arange": {
+                        "N": "1"
                     },
                     "id": {
                         "S": "record-1"
@@ -43,7 +52,10 @@
                 "StreamViewType":"NEW_AND_OLD_IMAGES",
                 "SequenceNumber":"222",
                 "OldImage":{
-                    "range": {
+                    "data": {
+                        "S": "data-1"
+                    },
+                    "arange": {
                         "N": "1"
                     },
                     "id": {
@@ -53,6 +65,9 @@
                 "Keys":{
                     "id": {
                         "S": "record-1"
+                    },
+                    "arange": {
+                        "N": "1"
                     }
                 }
             },
@@ -66,7 +81,10 @@
             "eventSource":"aws:dynamodb",
             "dynamodb": {
                 "NewImage":{
-                    "range": {
+                    "data": {
+                        "S": "data-1"
+                    },
+                    "arange": {
                         "N": "1"
                     },
                     "id": {
@@ -79,6 +97,9 @@
                 "Keys":{
                     "id": {
                         "S": "record-3"
+                    },
+                    "arange": {
+                        "N": "1"
                     }
                 }
             },
@@ -92,7 +113,10 @@
             "eventSource":"aws:dynamodb",
             "dynamodb": {
                 "NewImage":{
-                    "range": {
+                    "data": {
+                        "S": "data-1"
+                    },
+                    "arange": {
                         "N": "1"
                     },
                     "id": {
@@ -105,6 +129,9 @@
                 "Keys":{
                     "id": {
                         "S": "record-2"
+                    },
+                    "arange": {
+                        "N": "1"
                     }
                 }
             },
@@ -118,8 +145,11 @@
             "eventSource":"aws:dynamodb",
             "dynamodb": {
                 "NewImage":{
-                    "range": {
-                        "N": "22"
+                    "data": {
+                        "S": "data-2"
+                    },
+                    "arange": {
+                        "N": "1"
                     },
                     "id": {
                         "S": "record-2"
@@ -129,7 +159,10 @@
                 "StreamViewType":"NEW_AND_OLD_IMAGES",
                 "SequenceNumber":"222",
                 "OldImage":{
-                    "range": {
+                    "data": {
+                        "S": "data-1"
+                    },
+                    "arange": {
                         "N": "1"
                     },
                     "id": {
@@ -139,6 +172,9 @@
                 "Keys":{
                     "id": {
                         "S": "record-2"
+                    },
+                    "arange": {
+                        "N": "1"
                     }
                 }
             },
@@ -155,8 +191,11 @@
                 "StreamViewType":"NEW_AND_OLD_IMAGES",
                 "SequenceNumber":"333",
                 "OldImage":{
-                    "range": {
-                        "N": "11"
+                    "data": {
+                        "S": "data-2"
+                    },
+                    "arange": {
+                        "N": "1"
                     },
                     "id": {
                         "S": "record-1"
@@ -165,6 +204,9 @@
                 "Keys":{
                     "id": {
                         "S": "record-1"
+                    },
+                    "arange": {
+                        "N": "1"
                     }
                 }
             },
@@ -178,8 +220,11 @@
             "eventSource":"aws:dynamodb",
             "dynamodb": {
                 "NewImage":{
-                    "range": {
-                        "N": "33"
+                    "data": {
+                        "S": "data-2"
+                    },
+                    "arange": {
+                        "N": "1"
                     },
                     "id": {
                         "S": "record-3"
@@ -189,7 +234,10 @@
                 "StreamViewType":"NEW_AND_OLD_IMAGES",
                 "SequenceNumber":"222",
                 "OldImage":{
-                    "range": {
+                    "data": {
+                        "S": "data-1"
+                    },
+                    "arange": {
                         "N": "1"
                     },
                     "id": {
@@ -199,6 +247,9 @@
                 "Keys":{
                     "id": {
                         "S": "record-3"
+                    },
+                    "arange": {
+                        "N": "1"
                     }
                 }
             },

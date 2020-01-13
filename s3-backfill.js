@@ -33,7 +33,7 @@ function backfill(config, done) {
 
         var keys = data.Table.KeySchema.map(function(schema) {
             return schema.AttributeName;
-        });
+        }).sort(); // ensure keys are sorted by name and not declaration order which DDB requires to be HASH first
 
         var count = 0;
         var starttime = Date.now();

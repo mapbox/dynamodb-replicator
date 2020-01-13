@@ -53,7 +53,8 @@ dynamodb.test('[s3-backfill]', records, function(assert) {
 
         records.forEach(function(expected) {
             var key = crypto.createHash('md5')
-                .update(Dyno.serialize({ id: expected.id }))
+                // key names here must be in alphabetical order to match impl which is expected to sort them
+                .update(Dyno.serialize({ arange: expected.arange, id: expected.id }))
                 .digest('hex');
 
             key = [prefix, dynamodb.tableName, key].join('/');
