@@ -27,7 +27,7 @@ dynamodb.start();
 dynamodb.test('backup: one segment', primaryItems, function(assert) {
     var config = {
         backup: {
-            bucket: 'mapbox',
+            bucket: process.env.BackupBucket,
             prefix: 'dynamodb-replicator/test',
             jobid: crypto.randomBytes(4).toString('hex')
         },
@@ -46,7 +46,7 @@ dynamodb.test('backup: one segment', primaryItems, function(assert) {
         assert.equal(details.size, 98, 'reported 98 bytes');
 
         s3.getObject({
-            Bucket: 'mapbox',
+            Bucket: process.env.BackupBucket,
             Key: [config.backup.prefix, config.backup.jobid, '0'].join('/')
         }, function(err, data) {
             assert.ifError(err, 'retrieved backup from S3');
@@ -72,7 +72,7 @@ dynamodb.test('backup: one segment', primaryItems, function(assert) {
 dynamodb.test('backup: parallel', records, function(assert) {
     var config = {
         backup: {
-            bucket: 'mapbox',
+            bucket: process.env.BackupBucket,
             prefix: 'dynamodb-replicator/test',
             jobid: crypto.randomBytes(4).toString('hex')
         },
@@ -92,8 +92,8 @@ dynamodb.test('backup: parallel', records, function(assert) {
     queue(1)
         .defer(backup, firstConfig)
         .defer(backup, secondConfig)
-        .defer(s3.getObject.bind(s3), { Bucket: 'mapbox', Key: firstKey })
-        .defer(s3.getObject.bind(s3), { Bucket: 'mapbox', Key: secondKey })
+        .defer(s3.getObject.bind(s3), { Bucket: process.env.BackupBucket, Key: firstKey })
+        .defer(s3.getObject.bind(s3), { Bucket: process.env.BackupBucket, Key: secondKey })
         .awaitAll(function(err, results) {
             assert.ifError(err, 'all requests completed');
             if (err) return assert.end();
