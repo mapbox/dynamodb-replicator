@@ -193,7 +193,7 @@ function incrementalBackup(event, context, callback) {
                 };
 
                 var req = change.eventName === 'REMOVE' ? 'deleteObject' : 'putObject';
-                if (req === 'putObject') params.Body = JSON.stringify(change.dynamodb.NewImage);
+                if (req === 'putObject') params.Body = JSON.stringify(change.dynamodb.NewImage) + '\n';
 
                 s3[req](params, function(err) {
                     if (err) console.log(
