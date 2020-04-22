@@ -4,6 +4,7 @@ var stream = require('stream');
 var queue = require('queue-async');
 var crypto = require('crypto');
 var https = require('https');
+var joinPath = require('path.join');
 
 module.exports = backfill;
 
@@ -59,7 +60,7 @@ function backfill(config, done) {
 
             var params = {
                 Bucket: config.backup.bucket,
-                Key: [config.backup.prefix, config.table, id].join('/'),
+                Key: joinPath(config.backup.prefix, config.table, id),
                 Body: Dyno.serialize(record)
             };
 

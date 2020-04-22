@@ -7,6 +7,7 @@ var AWS = require('aws-sdk');
 var s3 = new AWS.S3();
 var queue = require('queue-async');
 var Dyno = require('dyno');
+var joinPath = require('path.join');
 
 var args = minimist(process.argv.slice(2));
 
@@ -67,13 +68,13 @@ try {
 }
 catch (err) { key = JSON.parse(key); }
 
-s3url.Key = [
+s3url.Key = joinPath(
     s3url.Key,
     table,
     crypto.createHash('md5')
         .update(Dyno.serialize(key))
         .digest('hex')
-].join('/');
+);
 
 var q = queue(100);
 q.awaitAll(function(err, results) {

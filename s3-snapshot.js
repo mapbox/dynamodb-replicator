@@ -3,6 +3,7 @@ var s3scan = require('s3scan');
 var zlib = require('zlib');
 var stream = require('stream');
 var AgentKeepAlive = require('agentkeepalive');
+var joinPath = require('path.join');
 
 module.exports = function(config, done) {
     var log = config.log || console.log;
@@ -29,7 +30,7 @@ module.exports = function(config, done) {
     var s3 = new AWS.S3(s3Options);
 
     var size = 0;
-    var uri = ['s3:/', config.source.bucket, config.source.prefix].join('/');
+    var uri = 's3://' + joinPath(config.source.bucket, config.source.prefix);
     var partsLoaded = -1;
 
     var objStream = s3scan.Scan(uri, { s3: s3 })
