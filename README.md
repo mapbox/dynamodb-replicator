@@ -185,3 +185,101 @@ Usage: incremental-record-history <tableinfo> <s3url> <recordkey>
 # Read the history of a single record
 $ incremental-record-history us-east-1/my-table s3://dynamodb-backups/incremental '{"id":"abc"}'
 ```
+
+### Instructions to run:
+##### Streambot dependency removed since it is deprecated
+
+The code could be deployed on a lambda for incremental backups to S3 and for replication across DynamoDB tables across regions and accounts. 
+
+Initial setup:
+```
+$ git clone https://github.com/subbuvenk94/dynamodb-replicator.git
+$ cd dynamodb-replicator
+$ npm install
+```
+After the dependent packages are installed, zip the contents of the root directory. Deploy the zip on to AWS Lambda console with the handler as ```index.backup``` or ```index.replicate``` based on your required functionality.
+
+The Lambda console lets us set the environment variables. Refer to this:
+```
+## Backup Functionality
+# Target bucket on S3
+BackupBucket=
+# Prefix for the data inside the bucket (Optional)
+BackupPrefix=
+# Region for the bucket (Optional)
+BackupRegion=
+
+## Replication Functionality
+# Key/Secret for a different AWS account write (Optional)
+ReplicaAccessKeyId=
+ReplicaSecretAccesseKey=
+# Name of replica table
+ReplicaTable=
+# Replica table region (NOTE: We have to manually create this table for the same key)
+ReplicaRegion=
+#Endpoint for replica table (Optional)
+ReplicaEndpoint=
+```
+Enable triggers for the tables on which these operations are made with view type ```New and old images - both the new and the old images of the item```. Note that the 'Triggers' option on DynamoDB tables are available based on region. Create the trigger for the existing Lambda function that we just created.
+
+For tables in which data already exists, the existing data has to be first replicated before we could do the incremental replication. Refer to [diff-tables](#diff-tables) for replication backfill. Similarly, for we can perform [incremental backfill](#incremental-backfill).
+
+The Lambda function would need permissions to perform the incremental backup or replication tasks. The IAM policy that should be created to award this permission could be set as:
+```
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": [
+                "logs:CreateLogGroup",
+                "logs:CreateLogStream",
+                "logs:PutLogEvents"
+            ],
+            "Resource": "arn:aws:logs:*:*:*"
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
+                "s3:ListBucket"
+            ],
+            "Resource": [
+                "arn:aws:s3:::<BACKUP_BUCKET_NAME>"
+            ]
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
+                "s3:GetObject",
+                "s3:PutObject",
+                "s3:DeleteObject"
+            ],
+            "Resource": [
+                "arn:aws:s3:::<BACKUP_BUCKET_NAME>/*"
+            ]
+        },
+        {
+            "Effect": "Allow",
+            "Action": "lambda:InvokeFunction",
+            "Resource": "*"
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
+                "dynamodb:DescribeStream",
+                "dynamodb:GetRecords",
+                "dynamodb:GetShardIterator",
+                "dynamodb:ListStreams",
+                "dynamodb:DescribeTable",
+                "dynamodb:PutItem",
+                "dynamodb:BatchWriteItem",
+                "dynamodb:Scan"
+            ],
+            "Resource": "*"
+        }
+    ]
+}
+```
+NOTE: Edit the BACKUP_BUCKET_NAME to the name of the backup bucket.
+
+After this setup, any changes to the tables should trigger the Lambda which would perform the incremental backup or the table repication. Your changes would be visible in the respective table or bucket.
