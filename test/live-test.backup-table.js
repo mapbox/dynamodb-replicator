@@ -1,5 +1,5 @@
 var test = require('tape');
-var dynamodb = require('dynamodb-test')(test, 'dynamodb-replicator', require('./table.json'), 'us-east-1');
+var dynamodb = require('@mapbox/dynamodb-test')(test, 'dynamodb-replicator', require('./table.json'), 'us-east-1');
 var exec = require('child_process').exec;
 var path = require('path');
 var crypto = require('crypto');

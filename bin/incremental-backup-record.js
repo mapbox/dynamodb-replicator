@@ -2,7 +2,7 @@
 
 var minimist = require('minimist');
 var s3urls = require('s3urls');
-var Dyno = require('dyno');
+var Dyno = require('@mapbox/dyno');
 var backup = require('..').backup;
 
 var args = minimist(process.argv.slice(2));
@@ -68,7 +68,7 @@ var dyno = Dyno({
 dyno.getItem({ Key: key }, function(err, data) {
     if (err) throw err;
     data = data.Item;
-    
+
     var event = {
         Records: [
             {

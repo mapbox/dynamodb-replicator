@@ -1,18 +1,11 @@
 var AWS = require('aws-sdk');
-var Dyno = require('dyno');
+var Dyno = require('@mapbox/dyno');
 var queue = require('queue-async');
 var crypto = require('crypto');
 var https = require('https');
-var streambot = require('streambot');
 
 module.exports.replicate = replicate;
-module.exports.streambotReplicate = streambot(function(event, callback) {
-    replicate(event, {}, callback);
-});
 module.exports.backup = incrementalBackup;
-module.exports.streambotBackup = streambot(function(event, callback) {
-    incrementalBackup(event, {}, callback);
-});
 module.exports.snapshot = require('./s3-snapshot');
 module.exports.agent = new https.Agent({
     keepAlive: true,

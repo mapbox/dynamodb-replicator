@@ -1,5 +1,5 @@
 var AWS = require('aws-sdk');
-var Dyno = require('dyno');
+var Dyno = require('@mapbox/dyno');
 var stream = require('stream');
 var zlib = require('zlib');
 
@@ -8,7 +8,8 @@ module.exports = function(config, done) {
     var s3 = new AWS.S3();
 
     var log = config.log || console.log;
-    var scanOpts = config.hasOwnProperty('segment') && config.segments ?
+
+    var scanOpts = Object.prototype.hasOwnProperty.call(config, 'segment') && config.segments ?
         { Segment: config.segment, TotalSegments: config.segments } : undefined;
 
     if (config.backup)
@@ -33,9 +34,9 @@ module.exports = function(config, done) {
 
     var data = primary.scanStream(scanOpts)
         .on('error', next)
-      .pipe(stringify)
+        .pipe(stringify)
         .on('error', next)
-      .pipe(zlib.createGzip());
+        .pipe(zlib.createGzip());
 
     log('[segment %s] Starting backup job %s of %s', index, config.backup.jobid, config.region + '/' + config.table);
 

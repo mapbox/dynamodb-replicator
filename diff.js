@@ -1,6 +1,6 @@
 var _ = require('underscore');
 var queue = require('queue-async');
-var Dyno = require('dyno');
+var Dyno = require('@mapbox/dyno');
 var stream = require('stream');
 var assert = require('assert');
 
@@ -13,7 +13,8 @@ module.exports = function(config, done) {
     replica.name = 'replica';
 
     var log = config.log || console.log;
-    var scanOpts = config.hasOwnProperty('segment') && config.segments ?
+
+    var scanOpts = Object.prototype.hasOwnProperty.call(config, 'segment') && config.segments ?
         { Segment: config.segment, TotalSegments: config.segments } : undefined;
 
     var discrepancies = 0;
@@ -248,11 +249,11 @@ module.exports = function(config, done) {
 
         primary.scanStream(scanOpts)
             .on('error', finish)
-          .pipe(aggregate)
+            .pipe(aggregate)
             .on('error', finish)
-          .pipe(compare)
+            .pipe(compare)
             .on('error', finish)
-          .pipe(write)
+            .pipe(write)
             .on('error', finish)
             .on('finish', function() {
                 discrepancies += compare.discrepancies;
@@ -271,11 +272,11 @@ module.exports = function(config, done) {
 
         replica.scanStream(scanOpts)
             .on('error', finish)
-          .pipe(aggregate)
+            .pipe(aggregate)
             .on('error', finish)
-          .pipe(compare)
+            .pipe(compare)
             .on('error', finish)
-          .pipe(write)
+            .pipe(write)
             .on('error', finish)
             .on('finish', function() {
                 discrepancies += compare.discrepancies;

@@ -1,5 +1,5 @@
 var AWS = require('aws-sdk');
-var s3scan = require('s3scan');
+var s3scan = require('@mapbox/s3scan');
 var zlib = require('zlib');
 var stream = require('stream');
 var AgentKeepAlive = require('agentkeepalive');
@@ -40,7 +40,7 @@ module.exports = function(config, done) {
     var stringify = new stream.Transform();
     stringify._writableState.objectMode = true;
     stringify._transform = function(data, enc, callback) {
-        if (!data) return callback();
+        if (!data || !data.Body ) return callback();
         callback(null, data.Body.toString() + '\n');
     };
 

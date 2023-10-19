@@ -1,8 +1,8 @@
 var test = require('tape');
 var tableDef = require('./fixtures/table');
-var DynamoDB = require('dynamodb-test');
+var DynamoDB = require('@mapbox/dynamodb-test');
 var replica = DynamoDB(test, 'mapbox-replicator', tableDef);
-var Dyno = require('dyno');
+var Dyno = require('@mapbox/dyno');
 var path = require('path');
 var events = path.resolve(__dirname, 'fixtures', 'events');
 var main = require('..');

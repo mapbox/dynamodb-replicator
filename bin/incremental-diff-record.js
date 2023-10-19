@@ -2,7 +2,7 @@
 
 var minimist = require('minimist');
 var s3urls = require('s3urls');
-var Dyno = require('dyno');
+var Dyno = require('@mapbox/dyno');
 var crypto = require('crypto');
 var AWS = require('aws-sdk');
 var s3 = new AWS.S3();
@@ -85,7 +85,7 @@ var dyno = Dyno({
 dyno.getItem({ Key: key }, function(err, data) {
     if (err) throw err;
     var dynamoRecord = data.Item;
-    
+
     s3.getObject(s3url, function(err, data) {
         if (err && err.statusCode !== 404) throw err;
         var s3data = err ? undefined : Dyno.deserialize(data.Body.toString());

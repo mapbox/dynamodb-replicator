@@ -1,6 +1,6 @@
 var test = require('tape');
-var primary = require('dynamodb-test')(test, 'dynamodb-replicator', require('./table.json'));
-var replica = require('dynamodb-test')(test, 'dynamodb-replicator', require('./table.json'));
+var primary = require('@mapbox/dynamodb-test')(test, 'dynamodb-replicator', require('./table.json'));
+var replica = require('@mapbox/dynamodb-test')(test, 'dynamodb-replicator', require('./table.json'));
 var exec = require('child_process').exec;
 var queue = require('queue-async');
 var diffRecord = require('path').resolve(__dirname, '..', 'bin', 'diff-record.js');

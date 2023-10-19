@@ -1,6 +1,6 @@
 var test = require('tape');
-var primary = require('dynamodb-test')(test, 'dynamodb-replicator', require('./table.json'));
-var replica = require('dynamodb-test')(test, 'dynamodb-replicator', require('./table.json'));
+var primary = require('@mapbox/dynamodb-test')(test, 'dynamodb-replicator', require('./table.json'));
+var replica = require('@mapbox/dynamodb-test')(test, 'dynamodb-replicator', require('./table.json'));
 var diff = require('../diff');
 var util = require('util');
 var _ = require('underscore');
@@ -243,9 +243,9 @@ test('diff: parsing locations', function(assert) {
     primary = primary.split('/'), replica = replica.split('/');
     var locations = parse_location.parse(primary, replica);
     primary = locations[0], replica = locations[1];
-    assert.ok(primary['endpoint']=='http://127.0.0.1:8000' && primary['region']=='local', 
+    assert.ok(primary['endpoint']=='http://127.0.0.1:8000' && primary['region']=='local',
         'got region and endpoint from local ip');
-    assert.ok(replica['endpoint']=='http://localhost:8000' && replica['region']=='local', 
+    assert.ok(replica['endpoint']=='http://localhost:8000' && replica['region']=='local',
         'got region and endpoint from localhost');
 
     // Testing with valid AWS region (Using Beijing region)
@@ -253,9 +253,9 @@ test('diff: parsing locations', function(assert) {
     primary = primary.split('/'), replica = replica.split('/');
     locations = parse_location.parse(primary, replica);
     primary = locations[0], replica = locations[1];
-    assert.ok(primary['endpoint']==null && primary['region']=='cn-north-1' && primary['table']=='table1', 
+    assert.ok(primary['endpoint']==null && primary['region']=='cn-north-1' && primary['table']=='table1',
         'got endpoint, region and table from AWS region');
-    assert.ok(replica['endpoint']==null && replica['region']=='cn-north-1' && replica['table']=='table2', 
+    assert.ok(replica['endpoint']==null && replica['region']=='cn-north-1' && replica['table']=='table2',
         'got endpoint, region and table from AWS region');
     assert.end()
 });
