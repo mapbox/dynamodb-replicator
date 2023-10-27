@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 var minimist = require('minimist');
-var Dyno = require('dyno');
+var Dyno = require('@mapbox/dyno');
 
 var args = minimist(process.argv.slice(2));
 

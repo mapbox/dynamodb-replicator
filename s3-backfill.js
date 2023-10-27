@@ -1,4 +1,4 @@
-var Dyno = require('dyno');
+var Dyno = require('@mapbox/dyno');
 var AWS = require('aws-sdk');
 var stream = require('stream');
 var queue = require('queue-async');
@@ -86,7 +86,7 @@ function backfill(config, done) {
 
         primary.scanStream()
             .on('error', next)
-          .pipe(writer)
+            .pipe(writer)
             .on('error', next)
             .on('finish', next);
 

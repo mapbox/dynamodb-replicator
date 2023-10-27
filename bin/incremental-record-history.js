@@ -6,7 +6,7 @@ var crypto = require('crypto');
 var AWS = require('aws-sdk');
 var s3 = new AWS.S3();
 var queue = require('queue-async');
-var Dyno = require('dyno');
+var Dyno = require('@mapbox/dyno');
 
 var args = minimist(process.argv.slice(2));
 

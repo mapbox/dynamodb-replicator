@@ -1,5 +1,5 @@
 var test = require('tape');
-var dynamodb = require('dynamodb-test')(test, 'dynamodb-replicator', require('./table.json'))
+var dynamodb = require('@mapbox/dynamodb-test')(test, 'dynamodb-replicator', require('./table.json'))
 var backup = require('../backup');
 var _ = require('underscore');
 var crypto = require('crypto');

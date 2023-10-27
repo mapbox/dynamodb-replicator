@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 var backup = require('../backup');
-var fastlog = require('fastlog');
+var fastlog = require('../fastlog');
 var args = require('minimist')(process.argv.slice(2));
 var crypto = require('crypto');
 var s3urls = require('s3urls');

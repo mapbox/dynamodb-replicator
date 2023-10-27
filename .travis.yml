@@ -1,6 +1,7 @@
+dist: jammy
 language: node_js
 node_js:
-  - 6
+  - 18
 sudo: false
 script:
   - npm test
