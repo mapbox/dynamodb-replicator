@@ -1,0 +1,61 @@
+service: dynamodb-backup
+frameworkVersion: "=1.26.0"
+
+provider:
+  name: aws
+  runtime: nodejs6.10
+  region: ap-southeast-2
+
+  iamRoleStatements:
+    - Effect: "Allow"
+      Action:
+        - "logs:CreateLogGroup"
+        - "logs:CreateLogStream"
+        - "logs:PutLogEvents"
+      Resource: "arn:aws:logs:*:*:*"
+    - Effect: "Allow"
+      Action:
+        - "s3:ListBucket"
+      Resource: "<YOUR BACKUP BUCKET NAME>"
+    - Effect: "Allow"
+      Action: 
+        - "s3:GetObject"
+        - "s3:PutObject"
+        - "s3:DeleteObject"
+      Resource: "arn:aws:s3:::<YOUR BACKUP BUCKET NAME>/*"
+    - Effect: "Allow"
+      Action: "lambda:InvokeFunction"
+      Resource: "*"
+    - Effect: "Allow"
+      Action:
+        - "dynamodb:DescribeStream"
+        - "dynamodb:GetRecords"
+        - "dynamodb:GetShardIterator"
+        - "dynamodb:ListStreams"
+      Resource: "*"
+
+package:
+  include:
+    - ./*.js
+    - ./node_modules
+
+functions:
+  index:
+    handler: index.backup
+
+    events:
+      - stream: <YOUR DYNAMODB STREAM ARN>
+
+    environment:
+      BackupRegion: <YOUR REGION>
+      BackupBucket: <YOUR BACKUP BUCKET NAME>
+      BackupPrefix: <YOUR PREFIX>
+
+resources:
+  Resources:
+    BackupBucket:
+      Type: AWS::S3::Bucket
+      Properties:
+        BucketName: <YOUR BACKUP BUCKET NAME>
+        VersioningConfiguration:
+          Status: "Enabled"
