@@ -5,7 +5,9 @@ var zlib = require('zlib');
 
 module.exports = function(config, done) {
     var primary = Dyno(config);
-    var s3 = new AWS.S3();
+    var s3 = new AWS.S3({
+        signatureVersion: 'v4'
+    });
 
     var log = config.log || console.log;
 
