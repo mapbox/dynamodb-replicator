@@ -6,7 +6,7 @@
             "eventSource":"aws:dynamodb",
             "dynamodb": {
                 "NewImage":{
-                    "range": {
+                    "arange": {
                         "N": "1"
                     },
                     "id": {
@@ -44,6 +44,9 @@
                 "Keys":{
                     "id": {
                         "S": "record-1"
+                    },
+                    "arange": {
+                        "N": "1"
                     }
                 }
             },
