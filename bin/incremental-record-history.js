@@ -70,7 +70,7 @@ catch (err) { key = JSON.parse(key); }
 s3url.Key = [
     s3url.Key,
     table,
-    crypto.createHash('md5')
+    crypto.createHash('sha256')
         .update(Dyno.serialize(key))
         .digest('hex')
 ].join('/');

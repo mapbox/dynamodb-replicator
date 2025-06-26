@@ -52,7 +52,7 @@ dynamodb.test('[s3-backfill]', records, function(assert) {
         var q = queue(20);
 
         records.forEach(function(expected) {
-            var key = crypto.createHash('md5')
+            var key = crypto.createHash('sha256')
                 .update(Dyno.serialize({ id: expected.id }))
                 .digest('hex');
 

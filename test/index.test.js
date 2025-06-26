@@ -155,7 +155,7 @@ test('[incremental backup] insert', function(assert) {
 
     var event = require(path.join(events, 'insert.json'));
     var table = event.Records[0].eventSourceARN.split('/')[1];
-    var id = crypto.createHash('md5')
+    var id = crypto.createHash('sha256')
         .update(JSON.stringify(event.Records[0].dynamodb.Keys))
         .digest('hex');
 
@@ -182,7 +182,7 @@ test('[incremental backup] insert & modify', function(assert) {
 
     var event = require(path.join(events, 'insert-modify.json'));
     var table = event.Records[0].eventSourceARN.split('/')[1];
-    var id = crypto.createHash('md5')
+    var id = crypto.createHash('sha256')
         .update(JSON.stringify(event.Records[0].dynamodb.Keys))
         .digest('hex');
 
@@ -209,7 +209,7 @@ test('[incremental backup] insert, modify & delete', function(assert) {
 
     var event = require(path.join(events, 'insert-modify-delete.json'));
     var table = event.Records[0].eventSourceARN.split('/')[1];
-    var id = crypto.createHash('md5')
+    var id = crypto.createHash('sha256')
         .update(JSON.stringify(event.Records[0].dynamodb.Keys))
         .digest('hex');
 
@@ -244,7 +244,7 @@ test('[incremental backup] adjust many', function(assert) {
         expected.forEach(function(record) {
             q.defer(function(next) {
                 var key = { id: record.id };
-                var id = crypto.createHash('md5')
+                var id = crypto.createHash('sha256')
                     .update(JSON.stringify(key))
                     .digest('hex');
 
@@ -264,7 +264,7 @@ test('[incremental backup] adjust many', function(assert) {
         });
 
         q.defer(function(next) {
-            var id = crypto.createHash('md5')
+            var id = crypto.createHash('sha256')
                 .update(JSON.stringify({ id: { S: 'record-1' } }))
                 .digest('hex');
 
