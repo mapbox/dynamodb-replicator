@@ -174,7 +174,7 @@ function incrementalBackup(event, context, callback) {
 
         changes.forEach(function(change) {
             q.defer(function(next) {
-                var id = crypto.createHash('md5')
+                var id = crypto.createHash('sha256')
                     .update(JSON.stringify(change.dynamodb.Keys))
                     .digest('hex');
 

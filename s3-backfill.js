@@ -53,7 +53,7 @@ function backfill(config, done) {
                 return key;
             }, {});
 
-            var id = crypto.createHash('md5')
+            var id = crypto.createHash('sha256')
                 .update(Dyno.serialize(key))
                 .digest('hex');
 

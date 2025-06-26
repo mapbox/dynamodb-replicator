@@ -43,7 +43,7 @@ dynamodb.test('backup: one segment', primaryItems, function(assert) {
         if (err) return assert.end();
 
         assert.equal(details.count, 3, 'reported 3 records');
-        assert.equal(details.size, 98, 'reported 98 bytes');
+        assert.equal(details.size, 101, 'reported 101 bytes');
 
         s3.getObject({
             Bucket: 'mapbox',

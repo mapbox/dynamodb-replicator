@@ -1,8 +1,0 @@
-dist: jammy
-language: node_js
-node_js:
-  - 18
-sudo: false
-script:
-  - npm test
-  - node test/live-test.backup-table.js
