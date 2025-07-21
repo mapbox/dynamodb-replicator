@@ -1,11 +1,12 @@
-var AWS = require('aws-sdk');
+var { S3Client } = require('@aws-sdk/client-s3');
+var { Upload } = require('@aws-sdk/lib-storage');
 var Dyno = require('@mapbox/dyno');
 var stream = require('stream');
 var zlib = require('zlib');
 
 module.exports = function(config, done) {
     var primary = Dyno(config);
-    var s3 = new AWS.S3();
+    var s3Client = new S3Client({ region: config.region });
 
     var log = config.log || console.log;
 
@@ -40,19 +41,29 @@ module.exports = function(config, done) {
 
     log('[segment %s] Starting backup job %s of %s', index, config.backup.jobid, config.region + '/' + config.table);
 
-    s3.upload({
-        Bucket: config.backup.bucket,
-        Key: key,
-        Body: data
-    }, function(err) {
-        if (err) return next(err);
-        log('[segment %s] Uploaded dynamo backup to s3://%s/%s', index, config.backup.bucket, key);
-        log('[segment %s] Wrote %s items to backup', index, count);
-        next();
-    }).on('httpUploadProgress', function(progress) {
-        log('[segment %s] Uploaded %s bytes', index, progress.loaded);
-        size = progress.total;
+    const upload = new Upload({
+        client: s3Client,
+        params: {
+            Bucket: config.backup.bucket,
+            Key: key,
+            Body: data
+        }
     });
+
+    upload.on('httpUploadProgress', function(progress) {
+        log('[segment %s] Uploaded %s bytes', index, progress.loaded);
+        size = progress.loaded;
+    });
+
+    upload.done()
+        .then(() => {
+            log('[segment %s] Uploaded dynamo backup to s3://%s/%s', index, config.backup.bucket, key);
+            log('[segment %s] Wrote %s items to backup', index, count);
+            next();
+        })
+        .catch(err => {
+            next(err);
+        });
 
     function next(err) {
         if (err) return done(err);

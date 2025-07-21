@@ -10,8 +10,14 @@ var replicate = require('..').replicate;
 var backup = require('..').backup;
 var _ = require('underscore');
 var crypto = require('crypto');
-var AWS = require('aws-sdk');
-var s3 = new AWS.S3();
+var { S3Client, GetObjectCommand } = require('@aws-sdk/client-s3');
+var s3Client = new S3Client({
+    region: 'us-east-1',
+    credentials: {
+        accessKeyId: 'mock',
+        secretAccessKey: 'mock'
+    }
+});
 var queue = require('queue-async');
 
 replica.start();
@@ -138,14 +144,15 @@ test('[incremental backup] configurable region', function(assert) {
     process.env.BackupRegion = 'fake';
     assert.plan(2);
 
-    var S3 = AWS.S3;
-    AWS.S3 = function(config) {
+    var originalS3Client = S3Client;
+    S3Client = function(config) {
         assert.equal(config.region, 'fake', 'configured region on S3 client');
+        return new originalS3Client();
     };
 
     backup({ Records: [] }, {}, function(err) {
         assert.ifError(err, 'backup success');
-        AWS.S3 = S3;
+        S3Client = originalS3Client;
         delete process.env.BackupRegion;
     });
 });
@@ -162,16 +169,18 @@ test('[incremental backup] insert', function(assert) {
     backup(event, {}, function(err) {
         assert.ifError(err, 'success');
 
-        s3.getObject({
+        s3Client.send(new GetObjectCommand({
             Bucket: process.env.BackupBucket,
             Key: [process.env.BackupPrefix, table, id].join('/')
-        }, function(err, data) {
-            assert.ifError(err, 'no S3 error');
+        })).then(function(data) {
             assert.ok(data.Body, 'got S3 object');
 
-            var found = JSON.parse(data.Body.toString());
+            var found = JSON.parse(Buffer.from(data.Body).toString());
             var expected = { range: { N:'1' }, id: { S: 'record-1' } };
             assert.deepEqual(found, expected, 'expected item put to S3');
+            assert.end();
+        }).catch(function(err) {
+            assert.ifError(err, 'no S3 error');
             assert.end();
         });
     });
@@ -189,16 +198,18 @@ test('[incremental backup] insert & modify', function(assert) {
     backup(event, {}, function(err) {
         assert.ifError(err, 'success');
 
-        s3.getObject({
+        s3Client.send(new GetObjectCommand({
             Bucket: process.env.BackupBucket,
             Key: [process.env.BackupPrefix, table, id].join('/')
-        }, function(err, data) {
-            assert.ifError(err, 'no S3 error');
+        })).then(function(data) {
             assert.ok(data.Body, 'got S3 object');
 
-            var found = JSON.parse(data.Body.toString());
+            var found = JSON.parse(Buffer.from(data.Body).toString());
             var expected = { range: { N:'2' }, id: { S: 'record-1' } };
             assert.deepEqual(found, expected, 'expected item modified on S3');
+            assert.end();
+        }).catch(function(err) {
+            assert.ifError(err, 'no S3 error');
             assert.end();
         });
     });
@@ -216,11 +227,14 @@ test('[incremental backup] insert, modify & delete', function(assert) {
     backup(event, {}, function(err) {
         assert.ifError(err, 'success');
 
-        s3.getObject({
+        s3Client.send(new GetObjectCommand({
             Bucket: process.env.BackupBucket,
             Key: [process.env.BackupPrefix, table, id].join('/')
-        }, function(err) {
-            assert.equal(err.code, 'NoSuchKey', 'object was deleted');
+        })).then(function() {
+            assert.fail('Expected NoSuchKey error');
+            assert.end();
+        }).catch(function(err) {
+            assert.equal(err.name, 'NoSuchKey', 'object was deleted');
             assert.end();
         });
     });
@@ -248,16 +262,17 @@ test('[incremental backup] adjust many', function(assert) {
                     .update(JSON.stringify(key))
                     .digest('hex');
 
-                s3.getObject({
+                s3Client.send(new GetObjectCommand({
                     Bucket: process.env.BackupBucket,
                     Key: [process.env.BackupPrefix, table, id].join('/')
-                }, function(err, data) {
-                    assert.ifError(err, 'no S3 error for ' + JSON.stringify(key));
-                    if (!data) return next();
+                })).then(function(data) {
                     assert.ok(data.Body, 'got S3 object for ' + JSON.stringify(key));
 
-                    var found = JSON.parse(data.Body.toString());
+                    var found = JSON.parse(Buffer.from(data.Body).toString());
                     assert.deepEqual(found, record, 'expected item modified on S3 for ' + JSON.stringify(key));
+                    next();
+                }).catch(function(err) {
+                    assert.ifError(err, 'no S3 error for ' + JSON.stringify(key));
                     next();
                 });
             });
@@ -268,11 +283,14 @@ test('[incremental backup] adjust many', function(assert) {
                 .update(JSON.stringify({ id: { S: 'record-1' } }))
                 .digest('hex');
 
-            s3.getObject({
+            s3Client.send(new GetObjectCommand({
                 Bucket: process.env.BackupBucket,
                 Key: [process.env.BackupPrefix, table, id].join('/')
-            }, function(err) {
-                assert.equal(err.code, 'NoSuchKey', 'object was deleted');
+            })).then(function() {
+                assert.fail('Expected NoSuchKey error');
+                next();
+            }).catch(function(err) {
+                assert.equal(err.name, 'NoSuchKey', 'object was deleted');
                 next();
             });
         });

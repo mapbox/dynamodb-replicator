@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-var AWS = require('aws-sdk');
+var { CloudWatchClient, PutMetricDataCommand } = require('@aws-sdk/client-cloudwatch');
 var args = require('minimist')(process.argv.slice(2));
 var s3urls = require('s3urls');
 var fastlog = require('../fastlog');
@@ -59,7 +59,7 @@ snapshot(config, function(err, details) {
         var namespace = args.metric.split('/')[1];
         var table = args.metric.split('/')[2];
 
-        var cw = new AWS.CloudWatch({ region: region });
+        var cwClient = new CloudWatchClient({ region: region });
 
         var params = {
             Namespace: namespace,
@@ -103,10 +103,13 @@ snapshot(config, function(err, details) {
             });
         }
 
-        cw.putMetricData(params, function(err) {
-            if (err) return log.error(err);
-            if (!details) return log.info('Snapshot failed, wrote error metric to %s', args.metric);
-            log.info('Wrote %s size / %s count metrics to %s', details.size, details.count, args.metric);
-        });
+        cwClient.send(new PutMetricDataCommand(params))
+            .then(() => {
+                if (!details) return log.info('Snapshot failed, wrote error metric to %s', args.metric);
+                log.info('Wrote %s size / %s count metrics to %s', details.size, details.count, args.metric);
+            })
+            .catch(err => {
+                log.error(err);
+            });
     }
 });

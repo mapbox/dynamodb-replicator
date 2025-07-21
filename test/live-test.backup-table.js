@@ -3,7 +3,8 @@ var dynamodb = require('@mapbox/dynamodb-test')(test, 'dynamodb-replicator', req
 var exec = require('child_process').exec;
 var path = require('path');
 var crypto = require('crypto');
-var AWS = require('aws-sdk');
+var { S3Client, GetObjectCommand } = require('@aws-sdk/client-s3');
+var { CloudWatchClient, GetMetricStatisticsCommand } = require('@aws-sdk/client-cloudwatch');
 var queue = require('queue-async');
 
 var primaryItems = [
@@ -31,25 +32,39 @@ dynamodb.test('backup-table shell script', primaryItems, function(assert) {
 
     exec(cmd, function(err) {
         assert.ifError(err, 'success');
-        var s3 = new AWS.S3();
-        var cw = new AWS.CloudWatch({ region: 'us-east-1' });
+        var s3Client = new S3Client({
+            region: 'us-east-1',
+            credentials: {
+                accessKeyId: 'fake',
+                secretAccessKey: 'fake'
+            }
+        });
+        var cwClient = new CloudWatchClient({
+            region: 'us-east-1',
+            credentials: {
+                accessKeyId: 'fake',
+                secretAccessKey: 'fake'
+            }
+        });
 
         console.log('Waiting 60s for CW to land...');
 
         setTimeout(function() {
             queue()
                 .defer(function(next) {
-                    s3.getObject({
+                    s3Client.send(new GetObjectCommand({
                         Bucket: 'mapbox',
                         Key: 'dynamodb-replicator/test/' + jobid + '/0'
-                    }, function(err, data) {
-                        assert.ifError(err, 'S3 getObject success');
+                    })).then(function(data) {
                         assert.ok(data.Body, 'Backup written to s3');
                         next();
+                    }).catch(function(err) {
+                        assert.ifError(err, 'S3 getObject success');
+                        next(err);
                     });
                 })
                 .defer(function(next) {
-                    cw.getMetricStatistics({
+                    cwClient.send(new GetMetricStatisticsCommand({
                         Namespace: 'Mapbox',
                         Dimensions: [
                             {
@@ -62,8 +77,7 @@ dynamodb.test('backup-table shell script', primaryItems, function(assert) {
                         EndTime: (new Date()).toISOString(),
                         Period: 60,
                         Statistics: ['Sum']
-                    }, function(err, data) {
-                        assert.ifError(err, 'CW BackupSize success');
+                    })).then(function(data) {
                         if (!data.Datapoints || !data.Datapoints.length) {
                             assert.fail('No CW data found');
                             return next();
@@ -71,10 +85,13 @@ dynamodb.test('backup-table shell script', primaryItems, function(assert) {
                         assert.equal(data.Datapoints.length, 1, 'BackupSize put to CW');
                         assert.equal(data.Datapoints[0].Sum, 101, 'Correct BackupSize value on CW');
                         next();
+                    }).catch(function(err) {
+                        assert.ifError(err, 'CW BackupSize success');
+                        next(err);
                     });
                 })
                 .defer(function(next) {
-                    cw.getMetricStatistics({
+                    cwClient.send(new GetMetricStatisticsCommand({
                         Namespace: 'Mapbox',
                         Dimensions: [
                             {
@@ -87,8 +104,7 @@ dynamodb.test('backup-table shell script', primaryItems, function(assert) {
                         EndTime: (new Date()).toISOString(),
                         Period: 60,
                         Statistics: ['Sum']
-                    }, function(err, data) {
-                        assert.ifError(err, 'CW BackupRecordCount success');
+                    })).then(function(data) {
                         if (!data.Datapoints || !data.Datapoints.length) {
                             assert.fail('No CW data found');
                             return next();
@@ -96,6 +112,9 @@ dynamodb.test('backup-table shell script', primaryItems, function(assert) {
                         assert.equal(data.Datapoints.length, 1, 'BackupRecordCount put to CW');
                         assert.equal(data.Datapoints[0].Sum, 3, 'Correct BackupRecordCount value on CW');
                         next();
+                    }).catch(function(err) {
+                        assert.ifError(err, 'CW BackupRecordCount success');
+                        next(err);
                     });
                 })
                 .await(function() {

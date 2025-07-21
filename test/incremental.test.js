@@ -1,6 +1,13 @@
 var test = require('tape');
-var AWS = require('aws-sdk');
-var s3 = new AWS.S3();
+var { S3Client, ListObjectsCommand, GetObjectCommand } = require('@aws-sdk/client-s3');
+var { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
+var s3Client = new S3Client({
+    region: 'us-east-1',
+    credentials: {
+        accessKeyId: 'fake',
+        secretAccessKey: 'fake'
+    }
+});
 var crypto = require('crypto');
 var tableDef = require('./fixtures/table');
 var dynamodb = require('@mapbox/dynamodb-test')(test, 's3-backfill', tableDef);
@@ -10,6 +17,7 @@ var zlib = require('zlib');
 var path = require('path');
 var os = require('os');
 var fs = require('fs');
+var https = require('https');
 
 var backfill = require('../s3-backfill');
 var snapshot = require('../s3-snapshot');
@@ -36,14 +44,15 @@ dynamodb.test('[s3-backfill]', records, function(assert) {
         console.log('\n');
         assert.ifError(err, 'success');
 
-        s3.listObjects({
+        s3Client.send(new ListObjectsCommand({
             Bucket: bucket,
             Prefix: prefix
-        }, function(err, data) {
-            if (err) throw err;
+        })).then(function(data) {
             checkS3(data.Contents.map(function(item) {
                 return item.Key;
             }));
+        }).catch(function(err) {
+            throw err;
         });
     });
 
@@ -61,13 +70,14 @@ dynamodb.test('[s3-backfill]', records, function(assert) {
 
             assert.ok(keys.indexOf(key) > -1, 'expected item written for ' + key);
             q.defer(function(next) {
-                s3.getObject({
+                s3Client.send(new GetObjectCommand({
                     Bucket: bucket,
                     Key: key
-                }, function(err, data) {
-                    if (err) throw err;
-                    assert.equal(data.Body.toString(), expected, 'expected data for ' + key);
+                })).then(function(data) {
+                    assert.equal(Buffer.from(data.Body).toString(), expected, 'expected data for ' + key);
                     next();
+                }).catch(function(err) {
+                    throw err;
                 });
             });
         });
@@ -109,10 +119,18 @@ test('[s3-snapshot]', function(assert) {
                 checkFile(result);
             });
 
-        s3.getObject({
+        // Get a signed URL for the S3 object
+        getSignedUrl(s3Client, new GetObjectCommand({
             Bucket: bucket,
             Key: snapshotKey
-        }).createReadStream().pipe(gunzip);
+        }), { expiresIn: 3600 }).then(function(url) {
+            // Use https to get the object and pipe it to gunzip
+            https.get(url, function(response) {
+                response.pipe(gunzip);
+            });
+        }).catch(function(err) {
+            throw err;
+        });
     });
 
     function checkFile(found) {

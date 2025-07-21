@@ -1,4 +1,4 @@
-var AWS = require('aws-sdk');
+var { S3Client, PutObjectCommand, DeleteObjectCommand } = require('@aws-sdk/client-s3');
 var Dyno = require('@mapbox/dyno');
 var queue = require('queue-async');
 var crypto = require('crypto');
@@ -118,16 +118,16 @@ function replicate(event, context, callback) {
 
 function incrementalBackup(event, context, callback) {
     var params = {
-        maxRetries: 1000,
-        httpOptions: {
-            timeout: 1000,
-            agent: module.exports.agent
+        maxAttempts: 1000,
+        requestHandler: {
+            connectionTimeout: 1000,
+            httpAgent: module.exports.agent
         }
     };
 
     if (process.env.BackupRegion) params.region = process.env.BackupRegion;
 
-    var s3 = new AWS.S3(params);
+    var s3Client = new S3Client(params);
 
     var filterer;
     if (process.env.TurnoverRole && process.env.TurnoverAt) {
@@ -185,28 +185,40 @@ function incrementalBackup(event, context, callback) {
                     Key: [process.env.BackupPrefix, table, id].join('/')
                 };
 
-                var req = change.eventName === 'REMOVE' ? 'deleteObject' : 'putObject';
-                if (req === 'putObject') params.Body = JSON.stringify(change.dynamodb.NewImage);
+                var command;
+                if (change.eventName === 'REMOVE') {
+                    command = new DeleteObjectCommand(params);
+                } else {
+                    params.Body = JSON.stringify(change.dynamodb.NewImage);
+                    command = new PutObjectCommand(params);
+                }
 
-                s3[req](params, function(err) {
-                    if (err) console.log(
-                        '[error] %s | %s s3://%s/%s | %s',
-                        JSON.stringify(change.dynamodb.Keys),
-                        req, params.Bucket, params.Key,
-                        err.message
-                    );
-                    next(err);
-                }).on('retry', function(res) {
-                    if (!res.error || !res.httpResponse || !res.httpResponse.headers) return;
-                    if (res.error.name === 'TimeoutError') res.error.retryable = true;
-                    console.log(
-                        '[failed-request] request-id: %s | id-2: %s | %s s3://%s/%s | %s',
-                        res.httpResponse.headers['x-amz-request-id'],
-                        res.httpResponse.headers['x-amz-id-2'],
-                        req, params.Bucket, params.Key,
-                        res.error
-                    );
-                });
+                s3Client.send(command)
+                    .then(() => {
+                        next();
+                    })
+                    .catch(err => {
+                        console.log(
+                            '[error] %s | %s s3://%s/%s | %s',
+                            JSON.stringify(change.dynamodb.Keys),
+                            change.eventName === 'REMOVE' ? 'deleteObject' : 'putObject',
+                            params.Bucket, params.Key,
+                            err.message
+                        );
+
+                        // Log retry information if available
+                        if (err.$metadata && err.$metadata.requestId) {
+                            console.log(
+                                '[failed-request] request-id: %s | %s s3://%s/%s | %s',
+                                err.$metadata.requestId,
+                                change.eventName === 'REMOVE' ? 'deleteObject' : 'putObject',
+                                params.Bucket, params.Key,
+                                err
+                            );
+                        }
+
+                        next(err);
+                    });
             });
         });
 
