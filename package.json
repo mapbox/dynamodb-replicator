@@ -35,7 +35,7 @@
     "@aws-sdk/lib-storage": "^3.445.0",
     "@aws-sdk/s3-request-presigner": "^3.848.0",
     "@mapbox/dyno": "^1.6.2",
-    "@mapbox/s3scan": "^1.1.0",
+    "@mapbox/s3scan": "^2.1.1",
     "agentkeepalive": "^4.5.0",
     "minimist": "^1.2.8",
     "queue-async": "1.0.7",
