@@ -1,6 +1,6 @@
 {
   "name": "@mapbox/dynamodb-replicator",
-  "version": "10.1.0",
+  "version": "11.0.1",
   "description": "",
   "main": "index.js",
   "scripts": {
@@ -29,12 +29,16 @@
   },
   "homepage": "https://github.com/mapbox/dynamodb-replicator",
   "dependencies": {
+    "@aws-sdk/client-cloudwatch": "^3.445.0",
+    "@aws-sdk/client-dynamodb": "^3.445.0",
+    "@aws-sdk/client-s3": "^3.445.0",
+    "@aws-sdk/lib-storage": "^3.445.0",
+    "@aws-sdk/s3-request-presigner": "^3.848.0",
     "@mapbox/dyno": "^1.6.2",
+    "@mapbox/s3scan": "^2.1.1",
     "agentkeepalive": "^4.5.0",
-    "aws-sdk": "^2.1476.0",
     "minimist": "^1.2.8",
     "queue-async": "1.0.7",
-    "@mapbox/s3scan": "^1.1.0",
     "s3urls": "^1.5.2",
     "underscore": "^1.13.6"
   },

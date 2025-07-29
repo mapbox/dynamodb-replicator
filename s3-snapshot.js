@@ -1,4 +1,5 @@
-var AWS = require('aws-sdk');
+var { S3Client } = require('@aws-sdk/client-s3');
+var { Upload } = require('@aws-sdk/lib-storage');
 var s3scan = require('@mapbox/s3scan');
 var zlib = require('zlib');
 var stream = require('stream');
@@ -14,25 +15,26 @@ module.exports = function(config, done) {
         return done(new Error('Must provide destination bucket and key where the snapshot will be put'));
 
     var s3Options = {
-        httpOptions: {
-            timeout: 1000,
-            agent: new AgentKeepAlive.HttpsAgent({
+        region: config.region || 'us-east-1',
+        requestHandler: {
+            connectionTimeout: 1000,
+            httpAgent: new AgentKeepAlive.HttpsAgent({
                 keepAlive: true,
                 maxSockets: 256,
-                keepAliveTimeout: 60000
+                keepAliveMsecs: 60000
             })
         }
     };
-    if (config.maxRetries) s3Options.maxRetries = config.maxRetries;
+    if (config.maxRetries) s3Options.maxAttempts = config.maxRetries;
     if (config.logger) s3Options.logger = config.logger;
 
-    var s3 = new AWS.S3(s3Options);
+    var s3Client = new S3Client(s3Options);
 
     var size = 0;
     var uri = ['s3:/', config.source.bucket, config.source.prefix].join('/');
     var partsLoaded = -1;
 
-    var objStream = s3scan.Scan(uri, { s3: s3 })
+    var objStream = s3scan.Scan(uri, { s3: s3Client })
         .on('error', function(err) { done(err); });
     var gzip = zlib.createGzip()
         .on('error', function(err) { done(err); });
@@ -44,11 +46,24 @@ module.exports = function(config, done) {
         callback(null, data.Body.toString() + '\n');
     };
 
-    var upload = s3.upload({
-        Bucket: config.destination.bucket,
-        Key: config.destination.key,
-        Body: gzip
-    }).on('httpUploadProgress', function(details) {
+    log(
+        'Starting snapshot from s3://%s/%s to s3://%s/%s',
+        config.source.bucket, config.source.prefix,
+        config.destination.bucket, config.destination.key
+    );
+
+    objStream.pipe(stringify).pipe(gzip);
+
+    const upload = new Upload({
+        client: s3Client,
+        params: {
+            Bucket: config.destination.bucket,
+            Key: config.destination.key,
+            Body: gzip
+        }
+    });
+
+    upload.on('httpUploadProgress', function(details) {
         if (details.part !== partsLoaded) {
             log(
                 'Starting upload of part #%s, %s bytes uploaded, %s items uploaded @ %s items/s',
@@ -59,21 +74,15 @@ module.exports = function(config, done) {
 
         partsLoaded = details.part;
         size = details.loaded;
-    }).on('error', function(err) { done(err); });
-
-    log(
-        'Starting snapshot from s3://%s/%s to s3://%s/%s',
-        config.source.bucket, config.source.prefix,
-        config.destination.bucket, config.destination.key
-    );
-
-    objStream.pipe(stringify).pipe(gzip);
-
-    upload.send(function(err) {
-        if (err) return done(err);
-
-        log('Uploaded snapshot to s3://%s/%s', config.destination.bucket, config.destination.key);
-        log('Wrote %s items and %s bytes to snapshot', objStream.got, size);
-        done(null, { size: size, count: objStream.got });
     });
+
+    upload.done()
+        .then(() => {
+            log('Uploaded snapshot to s3://%s/%s', config.destination.bucket, config.destination.key);
+            log('Wrote %s items and %s bytes to snapshot', objStream.got, size);
+            done(null, { size: size, count: objStream.got });
+        })
+        .catch(err => {
+            done(err);
+        });
 };

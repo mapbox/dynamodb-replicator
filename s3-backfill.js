@@ -1,5 +1,5 @@
 var Dyno = require('@mapbox/dyno');
-var AWS = require('aws-sdk');
+var { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
 var stream = require('stream');
 var queue = require('queue-async');
 var crypto = require('crypto');
@@ -14,11 +14,12 @@ module.exports.agent = new https.Agent({
 });
 
 function backfill(config, done) {
-    var s3 = new AWS.S3({
-        maxRetries: 1000,
-        httpOptions: {
-            timeout: 1000,
-            agent: module.exports.agent
+    var s3Client = new S3Client({
+        region: config.region,
+        maxAttempts: 1000,
+        requestHandler: {
+            connectionTimeout: 1000,
+            httpAgent: module.exports.agent
         }
     });
 
@@ -66,13 +67,18 @@ function backfill(config, done) {
             writer.drained = false;
             writer.pending++;
             writer.queue.defer(function(next) {
-                s3.putObject(params, function(err) {
-                    count++;
-                    process.stdout.write('\r\033[K' + count + ' - ' + (count / ((Date.now() - starttime) / 1000)).toFixed(2) + '/s');
-                    writer.pending--;
-                    if (err) writer.emit('error', err);
-                    next();
-                });
+                s3Client.send(new PutObjectCommand(params))
+                    .then(() => {
+                        count++;
+                        process.stdout.write('\r\033[K' + count + ' - ' + (count / ((Date.now() - starttime) / 1000)).toFixed(2) + '/s');
+                        writer.pending--;
+                    })
+                    .catch(err => {
+                        writer.emit('error', err);
+                        next();
+                    }).finally(() => {
+                        next();
+                    });
             });
             callback();
         };

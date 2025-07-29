@@ -3,8 +3,14 @@ var dynamodb = require('@mapbox/dynamodb-test')(test, 'dynamodb-replicator', req
 var backup = require('../backup');
 var _ = require('underscore');
 var crypto = require('crypto');
-var AWS = require('aws-sdk');
-var s3 = new AWS.S3();
+var { S3Client, GetObjectCommand } = require('@aws-sdk/client-s3');
+var s3Client = new S3Client({
+    region: 'us-east-1',
+    credentials: {
+        accessKeyId: 'fake',
+        secretAccessKey: 'fake'
+    }
+});
 var queue = require('queue-async');
 var zlib = require('zlib');
 
@@ -45,13 +51,10 @@ dynamodb.test('backup: one segment', primaryItems, function(assert) {
         assert.equal(details.count, 3, 'reported 3 records');
         assert.equal(details.size, 101, 'reported 101 bytes');
 
-        s3.getObject({
+        s3Client.send(new GetObjectCommand({
             Bucket: 'mapbox',
             Key: [config.backup.prefix, config.backup.jobid, '0'].join('/')
-        }, function(err, data) {
-            assert.ifError(err, 'retrieved backup from S3');
-            if (err) return assert.end();
-
+        })).then(function(data) {
             assert.ok(data.Body, 'file has content');
 
             zlib.gunzip(data.Body, function(err, data) {
@@ -92,8 +95,16 @@ dynamodb.test('backup: parallel', records, function(assert) {
     queue(1)
         .defer(backup, firstConfig)
         .defer(backup, secondConfig)
-        .defer(s3.getObject.bind(s3), { Bucket: 'mapbox', Key: firstKey })
-        .defer(s3.getObject.bind(s3), { Bucket: 'mapbox', Key: secondKey })
+        .defer(function(cb) {
+            s3Client.send(new GetObjectCommand({ Bucket: 'mapbox', Key: firstKey }))
+                .then(data => cb(null, data))
+                .catch(err => cb(err));
+        })
+        .defer(function(cb) {
+            s3Client.send(new GetObjectCommand({ Bucket: 'mapbox', Key: secondKey }))
+                .then(data => cb(null, data))
+                .catch(err => cb(err));
+        })
         .awaitAll(function(err, results) {
             assert.ifError(err, 'all requests completed');
             if (err) return assert.end();

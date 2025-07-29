@@ -5,7 +5,7 @@ var fastlog = require('../fastlog');
 var args = require('minimist')(process.argv.slice(2));
 var crypto = require('crypto');
 var s3urls = require('s3urls');
-var AWS = require('aws-sdk');
+var { CloudWatchClient, PutMetricDataCommand } = require('@aws-sdk/client-cloudwatch');
 
 function usage() {
     console.error('');
@@ -64,7 +64,7 @@ backup(config, function(err, details) {
     if (err) log.error(err);
 
     if (args.metric) {
-        var cw = new AWS.CloudWatch({ region: config.region });
+        var cwClient = new CloudWatchClient({ region: config.region });
         var params = {
             Namespace: args.metric,
             MetricData: []
@@ -107,8 +107,12 @@ backup(config, function(err, details) {
             });
         }
 
-        cw.putMetricData(params, function(err) {
-            if (err) log.error(err);
-        });
+        cwClient.send(new PutMetricDataCommand(params))
+            .then(() => {
+                // Success
+            })
+            .catch(err => {
+                log.error(err);
+            });
     }
 });

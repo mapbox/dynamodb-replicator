@@ -4,8 +4,7 @@ var minimist = require('minimist');
 var s3urls = require('s3urls');
 var Dyno = require('@mapbox/dyno');
 var crypto = require('crypto');
-var AWS = require('aws-sdk');
-var s3 = new AWS.S3();
+var { S3Client, GetObjectCommand } = require('@aws-sdk/client-s3');
 var assert = require('assert');
 
 var args = minimist(process.argv.slice(2));
@@ -33,6 +32,8 @@ if (!table) {
 
 var region = table.split('/')[0];
 table = table.split('/')[1];
+
+var s3Client = new S3Client({ region: region });
 
 var s3url = args._[1];
 
@@ -86,30 +87,51 @@ dyno.getItem({ Key: key }, function(err, data) {
     if (err) throw err;
     var dynamoRecord = data.Item;
 
-    s3.getObject(s3url, function(err, data) {
-        if (err && err.statusCode !== 404) throw err;
-        var s3data = err ? undefined : Dyno.deserialize(data.Body.toString());
+    s3Client.send(new GetObjectCommand(s3url))
+        .then(data => {
+            var s3data = Dyno.deserialize(data.Body.toString());
 
-        console.log('DynamoDB record');
-        console.log('--------------');
-        console.log(dynamoRecord);
-        console.log('');
+            console.log('DynamoDB record');
+            console.log('--------------');
+            console.log(dynamoRecord);
+            console.log('');
 
-        console.log('Incremental backup record (%s)', s3url.Key);
-        console.log('--------------');
-        console.log(s3data);
-        console.log('');
+            console.log('Incremental backup record (%s)', s3url.Key);
+            console.log('--------------');
+            console.log(s3data);
+            console.log('');
 
-        try {
-            assert.deepEqual(s3data, dynamoRecord);
-            console.log('----------------------------');
-            console.log('✔ The records are equivalent');
-            console.log('----------------------------');
-        }
-        catch (err) {
-            console.log('--------------------------------');
-            console.log('✘ The records are not equivalent');
-            console.log('--------------------------------');
-        }
-    });
+            try {
+                assert.deepEqual(s3data, dynamoRecord);
+                console.log('----------------------------');
+                console.log('✔ The records are equivalent');
+                console.log('----------------------------');
+            }
+            catch (err) {
+                console.log('--------------------------------');
+                console.log('✘ The records are not equivalent');
+                console.log('--------------------------------');
+            }
+        })
+        .catch(err => {
+            if (err.$metadata && err.$metadata.httpStatusCode === 404) {
+                var s3data = undefined;
+
+                console.log('DynamoDB record');
+                console.log('--------------');
+                console.log(dynamoRecord);
+                console.log('');
+
+                console.log('Incremental backup record (%s)', s3url.Key);
+                console.log('--------------');
+                console.log(s3data);
+                console.log('');
+
+                console.log('--------------------------------');
+                console.log('✘ The records are not equivalent');
+                console.log('--------------------------------');
+            } else {
+                throw err;
+            }
+        });
 });
