@@ -14,7 +14,7 @@ var fs = require('fs');
 var backfill = require('../s3-backfill');
 var snapshot = require('../s3-snapshot');
 
-var bucket = 'mapbox';
+var bucket = process.env.BackupBucket;
 var prefix = 'dynamodb-replicator/test/' + crypto.randomBytes(4).toString('hex');
 var records = require('./fixtures/records')(50);
 
