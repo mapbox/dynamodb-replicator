@@ -45,6 +45,8 @@ module.exports = function(config, done) {
     };
 
     var upload = s3.upload({
+        ServerSideEncryption: process.env.ServerSideEncryption || 'AES256',
+        SSEKMSKeyId: process.env.SSEKMSKeyId,
         Bucket: config.destination.bucket,
         Key: config.destination.key,
         Body: gzip

@@ -58,6 +58,8 @@ function backfill(config, done) {
                 .digest('hex');
 
             var params = {
+                ServerSideEncryption: process.env.ServerSideEncryption || 'AES256',
+                SSEKMSKeyId: process.env.SSEKMSKeyId,
                 Bucket: config.backup.bucket,
                 Key: [config.backup.prefix, config.table, id].join('/'),
                 Body: Dyno.serialize(record)
