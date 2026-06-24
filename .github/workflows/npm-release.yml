@@ -9,5 +9,6 @@ jobs:
     permissions:
       id-token: write
       contents: write
+    environment: npm-release
     with:
       create-github-release: true
